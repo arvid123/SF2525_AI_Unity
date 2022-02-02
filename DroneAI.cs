@@ -37,10 +37,11 @@ public class DroneAI : MonoBehaviour
         // ...
         Vector3 driving_direction = Vector3.zero;
         float gas = 1f;
+        float allowed_error = 2f;
 
         // Change current goal if it is reached
         Vector3 dronePosition = new Vector3(transform.position.x, 0f, transform.position.z);
-        if (Vector3.Distance(current_goal.pos, dronePosition) < 1f)
+        if (Vector3.Distance(current_goal.pos, dronePosition) < allowed_error && chosen_path.Count > 0)
         {
             current_goal = chosen_path.Pop();
         }
@@ -49,9 +50,11 @@ public class DroneAI : MonoBehaviour
         driving_direction = (current_goal.pos - dronePosition).normalized;
 
         // When we need to start breaking to reach the goal velocity at our current goal, start breaking
-        if ((goal_vel * goal_vel - m_Drone.velocity.magnitude * m_Drone.velocity.magnitude)/2*m_Drone.acceleration.magnitude <= Vector3.Distance(current_goal.pos, dronePosition))
+        float break_distance = Mathf.Abs((goal_vel * goal_vel - m_Drone.velocity.magnitude * m_Drone.velocity.magnitude) / (2 * m_Drone.acceleration.magnitude));
+        if (break_distance >= Vector3.Distance(current_goal.pos, dronePosition) - allowed_error)
         {
-            driving_direction = -driving_direction;
+            Debug.Log("Breaking");
+            driving_direction = -m_Drone.velocity.normalized;
         }
         // Collision avoidance using sensors
         /*float bubble_range = 6f;
