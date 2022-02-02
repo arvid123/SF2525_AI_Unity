@@ -352,20 +352,21 @@ namespace UnityStandardAssets.Vehicles.Car
                 Debug.Log("Did Hit");
             }
 
-            */
-            // this is how you control the car
-            //m_Car.Move(1f, 1f, 1f, 0f);
-        }
-        /*
-        private float[] Steer(Vector3 curPos, Vector3 pos)
-        {
-            t = Time.fixedDeltaTime;
-            float Accel = 1f;
-            float footbreak = 0f;
+            /*Vector3 relVect = my_goal_object.transform.position - transform.position;
+            bool is_in_front = Vector3.Dot(transform.forward, relVect) > 0f;
+            bool is_to_right = Vector3.Dot(transform.right, relVect) > 0f;
 
-            theta = nfmod(-m_Car.transform.eulerAngles.y * (Mathf.PI / 180.0f) + Mathf.PI / 2.0f, 2 * Mathf.PI);
-            float v = m_Car.CurrentSpeed;
+            if(is_in_front && is_to_right)
+                m_Car.Move(1f, 1f, 0f, 0f);
+            if(is_in_front && !is_to_right)
+                m_Car.Move(-1f, 1f, 0f, 0f);
+            if(!is_in_front && is_to_right)
+                m_Car.Move(-1f, -1f, -1f, 0f);
+            if(!is_in_front && !is_to_right)
+                m_Car.Move(1f, -1f, -1f, 0f);*/
 
+            
+            /*
             float xDist = pos[0] - curPos[0];
             float zDist = pos[2] - curPos[2];
 
@@ -588,11 +589,13 @@ namespace UnityStandardAssets.Vehicles.Car
             }
             float[] results = { Accel, beta, footbreak };
             return results;
+            */
         }
         public float nfmod(float a, float b)
         {
             return a - b * Mathf.Floor(a / b);
         }
-        */
+        
     }
 }
+            
