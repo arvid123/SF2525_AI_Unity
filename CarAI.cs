@@ -38,7 +38,7 @@ namespace UnityStandardAssets.Vehicles.Car
         */
 
         public int path_length;
-        public int step = 0;
+        public int step;
         public float k_p = 2f;
         public float k_d = 0.5f;
         public float allow_error = 2.0f;
@@ -197,6 +197,8 @@ namespace UnityStandardAssets.Vehicles.Car
             }
             UnityEngine.Debug.Log(" Path Length " + path_length);
 
+            // initialize the control
+            step = 0;
         }
 
 
@@ -311,7 +313,10 @@ namespace UnityStandardAssets.Vehicles.Car
             // ...
             Vector3 target_position = smooth_path[step];
             Vector3 current_position = transform.position;
-            //if 
+            if (Vector3.Distance(target_position, current_position) < allow_error)
+            {
+                if (step < =) 
+            }
             //step = step + 1;
             print(step);
             
