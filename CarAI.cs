@@ -210,7 +210,7 @@ namespace UnityStandardAssets.Vehicles.Car
             //Debug.DrawLine(transform.position, new Vector3(grid_center_x, 0f, grid_center_z));
 
 
-            Vector3 relVect = my_goal_object.transform.position - transform.position;
+            /*Vector3 relVect = my_goal_object.transform.position - transform.position;
             bool is_in_front = Vector3.Dot(transform.forward, relVect) > 0f;
             bool is_to_right = Vector3.Dot(transform.right, relVect) > 0f;
 
@@ -221,7 +221,7 @@ namespace UnityStandardAssets.Vehicles.Car
             if(!is_in_front && is_to_right)
                 m_Car.Move(-1f, -1f, -1f, 0f);
             if(!is_in_front && !is_to_right)
-                m_Car.Move(1f, -1f, -1f, 0f);
+                m_Car.Move(1f, -1f, -1f, 0f);*/
 
 
             // this is how you control the car

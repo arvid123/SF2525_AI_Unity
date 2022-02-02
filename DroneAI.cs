@@ -13,7 +13,9 @@ public class DroneAI : MonoBehaviour
     public GameObject terrain_manager_game_object;
     TerrainManager terrain_manager;
     List<Vector3> my_path;
-    float terrain_padding = 4f;
+    float terrain_padding = 2f;
+    Stack<Waypoint> chosen_path;
+    Waypoint current_goal;
 
     private void Start()
     {
@@ -36,6 +38,7 @@ public class DroneAI : MonoBehaviour
 
 
         // Create padded visibility graph
+        List<GameObject> padded_cubes = new List<GameObject>();
         var ter = terrain_manager.myInfo;
         float x_step = (ter.x_high - ter.x_low) / ter.x_N;
         float z_step = (ter.z_high - ter.z_low) / ter.z_N;
@@ -46,9 +49,13 @@ public class DroneAI : MonoBehaviour
                 if (ter.traversability[i, j] > 0.5f)
                 {
                     // Add invisible padded cube for collision detection
-                    /*GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
                     cube.transform.position = new Vector3(ter.get_x_pos(i), 0.0f, ter.get_z_pos(j));
-                    cube.transform.localScale = new Vector3(x_step + terrain_padding*1.9f, 15.0f, z_step + terrain_padding*1.9f);*/
+                    cube.transform.localScale = new Vector3(x_step + terrain_padding*1.9f, 15.0f, z_step + terrain_padding*1.9f);
+                    cube.GetComponent<Collider>().isTrigger = true;
+                    cube.GetComponent<MeshRenderer>().enabled = false;
+                    padded_cubes.Add(cube);
+
                     Vector3 lower_left = new Vector3(ter.get_x_pos(i) - x_step/2 - terrain_padding, 0, ter.get_z_pos(j) - z_step/2 - terrain_padding);
                     if (ter.traversability[ter.get_i_index(lower_left.x), ter.get_j_index(lower_left.z)] <= 0.5f)
                     {
@@ -86,7 +93,6 @@ public class DroneAI : MonoBehaviour
                         }
                     }
                 }
-
             }
         }
 
@@ -117,16 +123,18 @@ public class DroneAI : MonoBehaviour
         {
             foreach (var otherw in wps)
             {
-                if (!Physics.Linecast(w.pos, otherw.pos) && !w.pos.Equals(otherw.pos))
+                if ((!Physics.Linecast(w.pos, otherw.pos) && !w.pos.Equals(otherw.pos)) /*|| w.Equals(goal) || otherw.Equals(goal) || w.Equals(start) || otherw.Equals(start)*/)
                 {
                     w.neighbors.Add(otherw);
-                    Debug.DrawLine(w.pos, otherw.pos, Color.red, 2f);
+                    Debug.DrawLine(w.pos, otherw.pos, Color.red, 100f);
                 }
             }
         }
 
         // Find optimal path and draw it
         Stack<Waypoint> optimal_path = A_star(start, goal, wps);
+        chosen_path = new Stack<Waypoint>(new Stack<Waypoint>(optimal_path));
+        current_goal = chosen_path.Pop();
         Debug.Log(optimal_path.Count);
         Waypoint current = optimal_path.Pop();
         while (optimal_path.Count > 0)
@@ -134,6 +142,12 @@ public class DroneAI : MonoBehaviour
             Waypoint next = optimal_path.Pop();
             Debug.DrawLine(current.pos, next.pos, Color.yellow, 1000f);
             current = next;
+        }
+
+        // Delete padded cubes
+        foreach (var cube in padded_cubes)
+        {
+            cube.SetActive(false);
         }
     }
 
@@ -193,9 +207,33 @@ public class DroneAI : MonoBehaviour
     {
         // Execute your path here
         // ...
-        // Drive in direction of waypoint
-        Vector3 drivingDirection = (my_path[0] - transform.position).normalized;
-        //m_Drone.Move(drivingDirection.x, drivingDirection.z);
+        Vector3 driving_direction = Vector3.zero;
+        float gas = 0.5f;
+
+        Vector3 dronePosition = new Vector3(transform.position.x, 0f, transform.position.z);
+        if (Vector3.Distance(current_goal.pos, dronePosition) < 1f)
+        {
+            current_goal = chosen_path.Pop();
+        }
+
+        // Collision avoidance using sensors
+        float bubble_range = 6f;
+        Vector3 bounce_vec = Vector3.zero;
+        for (int k = 0; k < 8; k++)
+        {
+            Vector3 ray_direction = new Vector3(Mathf.Cos(k * Mathf.PI / 4), 0, Mathf.Sin(k * Mathf.PI / 4));
+            if (Physics.Raycast(transform.position, ray_direction, bubble_range)) {
+                bounce_vec = (-ray_direction); 
+            }
+        }
+
+        driving_direction = ((current_goal.pos - dronePosition).normalized + bounce_vec).normalized;
+
+        driving_direction = driving_direction * gas;
+        m_Drone.Move(driving_direction.x, driving_direction.z);
+
+        // Draw line to where drone is driving
+        Debug.DrawRay(transform.position, driving_direction*3f, Color.white, 1f);
 
         // this is how you access information about the terrain
         int i = terrain_manager.myInfo.get_i_index(transform.position.x);
@@ -203,14 +241,12 @@ public class DroneAI : MonoBehaviour
         float grid_center_x = terrain_manager.myInfo.get_x_pos(i);
         float grid_center_z = terrain_manager.myInfo.get_z_pos(j);
 
-        Debug.DrawLine(transform.position, new Vector3(grid_center_x, 0f, grid_center_z), Color.white, 1f);
+        //Debug.DrawLine(transform.position, new Vector3(grid_center_x, 0f, grid_center_z), Color.white, 1f);
 
         // this is how you control the car
         // m_Drone.Move(0.4f * Mathf.Sin(Time.time * 1.9f), 0.1f);
 
     }
-
- 
 
     // Update is called once per frame
     void Update()
