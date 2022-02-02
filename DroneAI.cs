@@ -16,9 +16,10 @@ public class DroneAI : MonoBehaviour
     float terrain_padding = 4f;
     Stack<Waypoint> chosen_path;
     Waypoint current_goal;
+    float goal_vel = 0;
     Pathgen pathgen;
 
-    private void Start()
+    private void Awake()
     {
         // get the drone controller
         m_Drone = GetComponent<DroneController>();
@@ -35,16 +36,25 @@ public class DroneAI : MonoBehaviour
         // Execute your path here
         // ...
         Vector3 driving_direction = Vector3.zero;
-        float gas = 0.5f;
+        float gas = 1f;
 
+        // Change current goal if it is reached
         Vector3 dronePosition = new Vector3(transform.position.x, 0f, transform.position.z);
         if (Vector3.Distance(current_goal.pos, dronePosition) < 1f)
         {
             current_goal = chosen_path.Pop();
         }
 
+        // Default behaviour is to drive towards the goal
+        driving_direction = (current_goal.pos - dronePosition).normalized;
+
+        // When we need to start breaking to reach the goal velocity at our current goal, start breaking
+        if ((goal_vel * goal_vel - m_Drone.velocity.magnitude * m_Drone.velocity.magnitude)/2*m_Drone.acceleration.magnitude <= Vector3.Distance(current_goal.pos, dronePosition))
+        {
+            driving_direction = -driving_direction;
+        }
         // Collision avoidance using sensors
-        float bubble_range = 6f;
+        /*float bubble_range = 6f;
         Vector3 bounce_vec = Vector3.zero;
         for (int k = 0; k < 8; k++)
         {
@@ -52,9 +62,7 @@ public class DroneAI : MonoBehaviour
             if (Physics.Raycast(transform.position, ray_direction, bubble_range)) {
                 bounce_vec = (-ray_direction); 
             }
-        }
-
-        driving_direction = ((current_goal.pos - dronePosition).normalized + bounce_vec).normalized;
+        }*/
 
         driving_direction = driving_direction * gas;
         m_Drone.Move(driving_direction.x, driving_direction.z);

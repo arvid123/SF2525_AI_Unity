@@ -130,12 +130,13 @@ namespace Assets.Scrips
 
             // Find optimal path and draw it
             optimal_path = A_star(start, goal, wps);
+            Stack<Waypoint> path = new Stack<Waypoint>(new Stack<Waypoint>(optimal_path));
             
-            Debug.Log(optimal_path.Count);
-            Waypoint current = optimal_path.Pop();
-            while (optimal_path.Count > 0)
+            Debug.Log(path.Count);
+            Waypoint current = path.Pop();
+            while (path.Count > 0)
             {
-                Waypoint next = optimal_path.Pop();
+                Waypoint next = path.Pop();
                 Debug.DrawLine(current.pos, next.pos, Color.yellow, 1000f);
                 current = next;
             }
@@ -149,7 +150,7 @@ namespace Assets.Scrips
 
         public Stack<Waypoint> getOptimalPath()
         {
-            return optimal_path;
+            return new Stack<Waypoint>(new Stack<Waypoint>(optimal_path));
         }
 
         // https://en.wikipedia.org/wiki/A*_search_algorithm 
