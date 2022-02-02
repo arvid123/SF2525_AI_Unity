@@ -360,8 +360,8 @@ namespace UnityStandardAssets.Vehicles.Car
             if(!is_in_front && !is_to_right)
                 m_Car.Move(1f, -1f, -1f, 0f);*/
 
+            
             /*
-
             float xDist = pos[0] - curPos[0];
             float zDist = pos[2] - curPos[2];
 
@@ -584,6 +584,7 @@ namespace UnityStandardAssets.Vehicles.Car
             }
             float[] results = { Accel, beta, footbreak };
             return results;
+            */
         }
         public float nfmod(float a, float b)
         {
@@ -592,3 +593,4 @@ namespace UnityStandardAssets.Vehicles.Car
         
     }
 }
+            
