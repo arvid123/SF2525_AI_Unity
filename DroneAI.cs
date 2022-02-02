@@ -18,6 +18,7 @@ public class DroneAI : MonoBehaviour
     Waypoint current_goal;
     float goal_vel = 0;
     Pathgen pathgen;
+    float driving_time_total = 0;
 
     private void Awake()
     {
@@ -37,10 +38,17 @@ public class DroneAI : MonoBehaviour
         // ...
         Vector3 driving_direction = Vector3.zero;
         float gas = 1f;
+        float allowed_error = 1f;
+        Vector3 dronePosition = new Vector3(transform.position.x, 0f, transform.position.z);
+
+        // Stopwatch
+        if (chosen_path.Count == 0 && Vector3.Distance(current_goal.pos, dronePosition) < allowed_error)
+        {
+            Debug.Log(string.Format("Total driving time: {0}", driving_time_total));
+        }
 
         // Change current goal if it is reached
-        Vector3 dronePosition = new Vector3(transform.position.x, 0f, transform.position.z);
-        if (Vector3.Distance(current_goal.pos, dronePosition) < 1f)
+        if (Vector3.Distance(current_goal.pos, dronePosition) < allowed_error && chosen_path.Count > 0 && m_Drone.velocity.magnitude <= goal_vel + 0.1f)
         {
             current_goal = chosen_path.Pop();
         }
@@ -49,9 +57,10 @@ public class DroneAI : MonoBehaviour
         driving_direction = (current_goal.pos - dronePosition).normalized;
 
         // When we need to start breaking to reach the goal velocity at our current goal, start breaking
-        if ((goal_vel * goal_vel - m_Drone.velocity.magnitude * m_Drone.velocity.magnitude)/2*m_Drone.acceleration.magnitude <= Vector3.Distance(current_goal.pos, dronePosition))
+        float break_distance = Mathf.Abs((goal_vel * goal_vel - m_Drone.velocity.magnitude * m_Drone.velocity.magnitude) / (2 * m_Drone.acceleration.magnitude));
+        if (break_distance >= Vector3.Distance(current_goal.pos, dronePosition) - allowed_error)
         {
-            driving_direction = -driving_direction;
+            driving_direction = -m_Drone.velocity.normalized;
         }
         // Collision avoidance using sensors
         /*float bubble_range = 6f;
