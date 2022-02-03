@@ -20,8 +20,7 @@ namespace UnityStandardAssets.Vehicles.Car
         List<Vector3> my_path;
         List<Vector3> smooth_path;
 
-        float terrain_padding = 6f;
-
+        float terrain_padding = 4f;
 
         /*
         public int iter;
@@ -41,6 +40,7 @@ namespace UnityStandardAssets.Vehicles.Car
         Stack<Waypoint> chosen_path;
         Waypoint current_goal;
         Pathgen pathgen;
+        float driving_time_total = 0.0f;
 
         public int smooth_path_len;
         public int step;
@@ -76,7 +76,7 @@ namespace UnityStandardAssets.Vehicles.Car
                 float linear_dis = Vector3.Distance(current.pos, next.pos);
                 //UnityEngine.Debug.Log("Linear distance" + linear_dis);
                 num_interpolation = (int)Math.Ceiling(linear_dis / 4);
-                UnityEngine.Debug.Log("num_interpolation" + num_interpolation);
+                //UnityEngine.Debug.Log("num_interpolation" + num_interpolation);
                 for (int i=1; i<= num_interpolation; i++)
                 {
                     float rate = (float) i / num_interpolation;
@@ -137,7 +137,7 @@ namespace UnityStandardAssets.Vehicles.Car
             smooth_path_len = 0;
             foreach (var sp in smooth_path)
             {
-                Debug.DrawLine(old_sp, sp, Color.blue, 100f);
+                Debug.DrawLine(old_sp, sp, Color.cyan, 100f);
                 old_sp = sp;
                 smooth_path_len++;
             }
@@ -170,10 +170,37 @@ namespace UnityStandardAssets.Vehicles.Car
         {
             // Execute your path here
             // ...
-           
+
+            
+
+
+            
             Vector3 target_position = smooth_path[step];
             Vector3 current_position = transform.position;
-            
+
+            if (step < smooth_path_len - 1)
+            {
+                if (Vector3.Distance(target_position, current_position) < allow_error)
+                {
+                    step++;
+                    target_position = smooth_path[step];
+                }
+            }
+
+            if (step == smooth_path_len - 1)
+            {
+                //m_Car.Move(0f, 0f, 0f, 1f);
+                print("Arrive");
+                return;
+                /*
+                if (Vector3.Distance(target_position, current_position) < allow_error)
+                {
+                    print("Arrive");
+                    return;
+                }
+                */
+            }
+            /*
             if (Vector3.Distance(target_position, current_position) < allow_error)
             {
                 if (step < smooth_path_len - 1)
@@ -184,40 +211,68 @@ namespace UnityStandardAssets.Vehicles.Car
                 else
                     return;
             }
+            */
 
-            Vector3 target_velocity = (target_position - target_position) / Time.fixedDeltaTime;
-            if (step >=0)
+            // calculate traget velocity and steering angle
+
+
+            //float turn_angle_ratio = Mathf.Pow(Vector3.Angle(target_position - smooth_path[step - 1], smooth_path[step + 1] - target_position), 5);
+            //UnityEngine.Debug.Log("turn_angle_ratio" + turn_angle_ratio);
+            /*
+            Vector3 target_velocity = (smooth_path[step + 1] - target_position) / Time.fixedDeltaTime;
+            if (step == smooth_path_len - 1)
             {
-                target_velocity = (target_position - smooth_path[step - 1]) / Time.fixedDeltaTime;
+                target_velocity = (target_position - target_position) / Time.fixedDeltaTime;
             }
+            */
+            Vector3 target_velocity = (target_position- smooth_path[step -1]) / Time.fixedDeltaTime;
             Vector3 position_error = target_position - current_position;
             Vector3 velocity_error = target_velocity - my_rigidbody.velocity;
             Vector3 desired_acceleration = k_p * position_error + k_d * velocity_error;
+
             float steering = Vector3.Dot(desired_acceleration, transform.right);
             float acceleration = Vector3.Dot(desired_acceleration, transform.forward);
-            Debug.Log("Steering:" + steering + " Acceleration:" + acceleration);
-            m_Car.Move(steering, acceleration, acceleration, 0f);
-            print(step);
-            
-           /*
-            // this is how you access information about the terrain from the map
-            int i = terrain_manager.myInfo.get_i_index(transform.position.x);
-            int j = terrain_manager.myInfo.get_j_index(transform.position.z);
-            float grid_center_x = terrain_manager.myInfo.get_x_pos(i);
-            float grid_center_z = terrain_manager.myInfo.get_z_pos(j);
 
-            Debug.DrawLine(transform.position, new Vector3(grid_center_x, 0f, grid_center_z));
-
-            // this is how you access information about the terrain from a simulated laser range finder
-            RaycastHit hit;
-            float maxRange = 50f;
-            if (Physics.Raycast(transform.position + transform.up, transform.TransformDirection(Vector3.forward), out hit, maxRange))
+            /*
+            if (step > smooth_path_len - 10)
             {
-                Vector3 closestObstacleInFront = transform.TransformDirection(Vector3.forward) * hit.distance;
-                Debug.DrawRay(transform.position, closestObstacleInFront, Color.yellow);
-                Debug.Log("Did Hit");
+                float rate = (float)1.0f / (step - smooth_path_len + 10);
+                Debug.Log("Step" + step + " Rate:" + rate);
+                steering = steering * rate;
+                acceleration = acceleration * rate;
             }
-           */
+            */
+            //Debug.Log("Steering:" + steering + " Acceleration:" + acceleration);
+            //m_Car.Move(steering, acceleration, acceleration, 0f);
+           if (step < smooth_path_len - 25)
+                m_Car.Move(steering, acceleration, acceleration, 0f);
+                driving_time_total += Time.fixedDeltaTime;
+
+            if (step >= smooth_path_len - 25)
+                m_Car.Move(steering, 0.0f, -1.0f, 0f);
+                driving_time_total += Time.fixedDeltaTime;
+            print(driving_time_total);
+            //print(step);
+
+            /*
+                // this is how you access information about the terrain from the map
+                int i = terrain_manager.myInfo.get_i_index(transform.position.x);
+                int j = terrain_manager.myInfo.get_j_index(transform.position.z);
+                float grid_center_x = terrain_manager.myInfo.get_x_pos(i);
+                float grid_center_z = terrain_manager.myInfo.get_z_pos(j);
+
+                Debug.DrawLine(transform.position, new Vector3(grid_center_x, 0f, grid_center_z));
+
+                // this is how you access information about the terrain from a simulated laser range finder
+                RaycastHit hit;
+                float maxRange = 50f;
+                if (Physics.Raycast(transform.position + transform.up, transform.TransformDirection(Vector3.forward), out hit, maxRange))
+                {
+                    Vector3 closestObstacleInFront = transform.TransformDirection(Vector3.forward) * hit.distance;
+                    Debug.DrawRay(transform.position, closestObstacleInFront, Color.yellow);
+                    Debug.Log("Did Hit");
+                }
+            */
         }
         
     }
