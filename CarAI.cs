@@ -19,6 +19,7 @@ namespace UnityStandardAssets.Vehicles.Car
 
         List<Vector3> my_path;
         List<Vector3> smooth_path;
+
         float terrain_padding = 4f;
 
 
@@ -37,141 +38,86 @@ namespace UnityStandardAssets.Vehicles.Car
         private float t;
         */
 
-        public int path_length;
+        Stack<Waypoint> chosen_path;
+        Waypoint current_goal;
+        Pathgen pathgen;
+
+        public int smooth_path_len;
         public int step;
         public float k_p = 2f;
         public float k_d = 0.5f;
-        public float allow_error = 2.0f;
+        public float allow_error = 3.0f;
         public bool isloop;
-        // Rigidbody my_rigidbody;
+        Rigidbody my_rigidbody;
         
         private void Start()
         {
-            // get the drone controller
+            // get the Car controller
             m_Car = GetComponent<CarController>();
             terrain_manager = terrain_manager_game_object.GetComponent<TerrainManager>();
-            // my_rigidbody = GetComponent<Rigidbody>();
-
-            Vector3 start_pos = terrain_manager.myInfo.start_pos;
-            Vector3 goal_pos = terrain_manager.myInfo.goal_pos;
+            my_rigidbody = GetComponent<Rigidbody>();
 
             my_path = new List<Vector3>();
+            pathgen = new Pathgen(terrain_manager, terrain_padding);
+            chosen_path = new Stack<Waypoint>(new Stack<Waypoint>(pathgen.getOptimalPath()));
+            //current_goal = chosen_path.Pop();
 
-            // Plan your path here
-            // ...
-
-            //for (int i = 0; i < 3; i++)
-            //{
-            //}
-
-
-            // Create padded visibility graph
-            var ter = terrain_manager.myInfo;
-            float x_step = (ter.x_high - ter.x_low) / ter.x_N;
-            float z_step = (ter.z_high - ter.z_low) / ter.z_N;
-            for (int i = 0; i < ter.x_N; i++)
-            {
-                for (int j = 0; j < ter.z_N; j++)
-                {
-                    if (ter.traversability[i, j] > 0.5f)
-                    {
-                        // Add invisible padded cube for collision detection
-                        /*GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                        cube.transform.position = new Vector3(ter.get_x_pos(i), 0.0f, ter.get_z_pos(j));
-                        cube.transform.localScale = new Vector3(x_step + terrain_padding*1.9f, 15.0f, z_step + terrain_padding*1.9f);*/
-                        Vector3 lower_left = new Vector3(ter.get_x_pos(i) - x_step / 2 - terrain_padding, 0, ter.get_z_pos(j) - z_step / 2 - terrain_padding);
-                        if (ter.traversability[ter.get_i_index(lower_left.x), ter.get_j_index(lower_left.z)] <= 0.5f)
-                        {
-                            // Make sure we only add convex corners to the graph
-                            if (j > 0 && ter.traversability[i, j - 1] <= 0.5f && i > 0 && ter.traversability[i - 1, j] <= 0.5f)
-                            {
-                                my_path.Add(lower_left);
-                            }
-                        }
-                        Vector3 lower_right = new Vector3(ter.get_x_pos(i) + x_step / 2 + terrain_padding, 0, ter.get_z_pos(j) - z_step / 2 - terrain_padding);
-                        if (ter.traversability[ter.get_i_index(lower_right.x), ter.get_j_index(lower_right.z)] <= 0.5f)
-                        {
-                            // Make sure we only add convex corners to the graph
-                            if (j > 0 && ter.traversability[i, j - 1] <= 0.5f && i < ter.x_N - 1 && ter.traversability[i + 1, j] <= 0.5f)
-                            {
-                                my_path.Add(lower_right);
-                            }
-                        }
-                        Vector3 upper_left = new Vector3(ter.get_x_pos(i) - x_step / 2 - terrain_padding, 0, ter.get_z_pos(j) + z_step / 2 + terrain_padding);
-                        if (ter.traversability[ter.get_i_index(upper_left.x), ter.get_j_index(upper_left.z)] <= 0.5f)
-                        {
-                            // Make sure we only add convex corners to the graph
-                            if (j < ter.z_N - 1 && ter.traversability[i, j + 1] <= 0.5f && i > 0 && ter.traversability[i - 1, j] <= 0.5f)
-                            {
-                                my_path.Add(upper_left);
-                            }
-                        }
-                        Vector3 upper_right = new Vector3(ter.get_x_pos(i) + x_step / 2 + terrain_padding, 0, ter.get_z_pos(j) + z_step / 2 + terrain_padding);
-                        if (ter.traversability[ter.get_i_index(upper_right.x), ter.get_j_index(upper_right.z)] <= 0.5f)
-                        {
-                            // Make sure we only add convex corners to the graph
-                            if (j < ter.z_N - 1 && ter.traversability[i, j + 1] <= 0.5f && i < ter.x_N - 1 && ter.traversability[i + 1, j] <= 0.5f)
-                            {
-                                my_path.Add(upper_right);
-                            }
-                        }
-                    }
-
-                }
-            }
-
-
-            /* Plot your path to see if it makes sense
-            Vector3 old_wp = start_pos;
-            foreach (var wp in my_path)
-            {
-                Debug.DrawLine(old_wp, wp, Color.red, 100f);
-                old_wp = wp;
-            }
-            */
-
-            List<Waypoint> wps = new List<Waypoint>();
-
-            foreach (var vec in my_path)
-            {
-                Waypoint w = new Waypoint(vec);
-                wps.Add(w);
-            }
-
-            Waypoint start = new Waypoint(start_pos);
-            Waypoint goal = new Waypoint(goal_pos);
-            wps.Add(start);
-            wps.Add(goal);
-
-            foreach (var w in wps)
-            {
-                foreach (var otherw in wps)
-                {
-                    if (!Physics.Linecast(w.pos, otherw.pos) && !w.pos.Equals(otherw.pos))
-                    {
-                        w.neighbors.Add(otherw);
-                        Debug.DrawLine(w.pos, otherw.pos, Color.red, 2f);
-                    }
-                }
-            }
-
-            // Find optimal path and draw it
-            Stack<Waypoint> optimal_path = A_star(start, goal, wps);
-            Debug.Log(optimal_path.Count);
-            Waypoint current = optimal_path.Pop();
-            List<Vector3> cps= new List<Vector3>(); // create contol points
+            // linear interpolation
+            int chosen_path_len = 1;
+            int cps_len = 1;
+            int num_interpolation;
+            Waypoint current = chosen_path.Pop();
+            List<Vector3> cps = new List<Vector3>(); // create contol points
             cps.Add(current.pos);
-            while (optimal_path.Count > 0)
+            // UnityEngine.Debug.Log("cps" + current.pos);
+            while (chosen_path.Count > 0)
             {
-                Waypoint next = optimal_path.Pop();
-                Debug.DrawLine(current.pos, next.pos, Color.yellow, 1000f);
+                Waypoint next = chosen_path.Pop();
+                float linear_dis = Vector3.Distance(current.pos, next.pos);
+                //UnityEngine.Debug.Log("Linear distance" + linear_dis);
+                num_interpolation = (int)Math.Ceiling(linear_dis / 4);
+                UnityEngine.Debug.Log("num_interpolation" + num_interpolation);
+                for (int i=1; i<= num_interpolation; i++)
+                {
+                    float rate = (float) i / num_interpolation;
+                    Vector3 add_point = Vector3.Lerp(current.pos, next.pos, rate);
+                    cps.Add(add_point);
+                    //UnityEngine.Debug.Log("cps"+ add_point);
+                }
+                chosen_path_len++;
+                cps_len += num_interpolation;
                 current = next;
-                cps.Add(current.pos);
+            }
+            //UnityEngine.Debug.Log("Linear Path Length " + chosen_path_len);
+            //UnityEngine.Debug.Log("Possible Control points Length " + cps_len);
+
+            List<Vector3> cps_new = new List<Vector3>(); // create contol points
+            int cps_new_len = 0;
+            int interval = 4;
+            for (int i=0; i< cps_len-1; i++)
+            {
+                if ((i % interval) == 0)
+                {
+                    cps_new.Add(cps[i]);
+                    //UnityEngine.Debug.Log("cps_new" + cps[i]);
+                    cps_new_len++;
+                }
+            }
+            cps_new.Add(cps[cps_len-1]);
+            //UnityEngine.Debug.Log("cps_new" + cps[cps_len - 1]);
+            cps_new_len++;
+            //UnityEngine.Debug.Log("Control points Length" + cps_new_len);
+
+            Vector3 old_cp = cps_new[0];
+            foreach (var cp in cps_new)
+            {
+                Debug.DrawLine(old_cp, cp, Color.red, 100f);
+                old_cp = cp;
             }
 
-            // Find smooth path
+            // Smoothness
             SplineCurve curve = new SplineCurve();
-            foreach (var cp in cps)
+            foreach (var cp in cps_new)
             {
                 curve.AddNode(cp);
             }
@@ -179,7 +125,7 @@ namespace UnityStandardAssets.Vehicles.Car
             smooth_path = new List<Vector3>(); //create smooth path
             for (int i = 0; i < curve.segmentList.Count; i++)
             {
-                float add = 1f / 20;  // 表示两个关键点之间取20个点，可根据需要设置
+                float add = 1f / 10;  // 表示两个关键点之间取20个点，可根据需要设置
                 for (float j = 0; j < 1; j += add)
                 {
                     Vector3 point = curve.segmentList[i].GetPoint(j);
@@ -187,74 +133,20 @@ namespace UnityStandardAssets.Vehicles.Car
                 }
             }
 
-            Vector3 old_sp = start_pos;
-            path_length = 0;
+            Vector3 old_sp = smooth_path[0];
+            smooth_path_len = 0;
             foreach (var sp in smooth_path)
             {
                 Debug.DrawLine(old_sp, sp, Color.blue, 100f);
                 old_sp = sp;
-                path_length = path_length + 1;
+                smooth_path_len++;
             }
-            UnityEngine.Debug.Log(" Path Length " + path_length);
+            //UnityEngine.Debug.Log("Smooth Path Length " + smooth_path_len);
+
 
             // initialize the control
             step = 0;
         }
-
-
-
-        // https://en.wikipedia.org/wiki/A*_search_algorithm 
-        private Stack<Waypoint> A_star(Waypoint start, Waypoint goal, List<Waypoint> waypoints)
-        {
-            SimplePriorityQueue<Waypoint, double> openSet = new SimplePriorityQueue<Waypoint, double>();
-            openSet.Enqueue(start, double.PositiveInfinity);
-            start.gScore = 0;
-
-            while (openSet.Count > 0)
-            {
-                Waypoint current = openSet.Dequeue();
-                if (current.Equals(goal))
-                {
-                    return reconstruct_path(start, goal);
-                }
-
-                foreach (var neighbor in current.neighbors)
-                {
-                    double tentative_gScore = current.gScore + Vector3.Distance(current.pos, neighbor.pos);
-                    if (tentative_gScore < neighbor.gScore)
-                    {
-                        // This path to neighbor is better than any other recorded one.
-                        neighbor.cameFrom = current;
-                        neighbor.gScore = tentative_gScore;
-                        openSet.EnqueueWithoutDuplicates(neighbor, tentative_gScore + h(neighbor, goal));
-                    }
-                }
-            }
-
-            // Should be unreachable
-            return null;
-        }
-
-        // The heuristic for the A* algorithm
-        private double h(Waypoint w, Waypoint goal)
-        {
-            return Vector3.Distance(w.pos, goal.pos);
-        }
-
-        private Stack<Waypoint> reconstruct_path(Waypoint start, Waypoint goal)
-        {
-            Stack<Waypoint> path = new Stack<Waypoint>();
-            Waypoint current = goal;
-            while (!current.Equals(start))
-            {
-                path.Push(current);
-                current = current.cameFrom;
-            }
-            path.Push(current);
-
-            return path;
-        }
-
 
         public static Vector3[] GetBezierCurveWithThreePoints(Vector3 point_1, Vector3 point_2, Vector3 point_3, int vertexCount)
         {
@@ -276,63 +168,28 @@ namespace UnityStandardAssets.Vehicles.Car
 
         private void FixedUpdate()
         {
-            /*
-            iter++;
-            sinceLastChange += m_Car.CurrentSpeed * t;
-            if (Done)
-            {
-                m_Car.Move(0f, 0f, 0f, 1f);
-            }
-            else
-            {
-                //UnityEngine.Debug.Log("----------------------------- Iteration: " + iter + " -----------------------------");
-                if (nextPoint)
-                {
-                    sinceLastChange += 1;
-                    if (sinceLastChange > 4)
-                    {
-                        next++;
-                        sinceLastChange = 0;
-                        nextPoint = false;
-                        if (nextnext <= next)
-                        {
-                            nextnext++;
-                        }
-                    }
-                }
-                car_pos = new Vector3(transform.position.x, 0, transform.position.z);
-                //UnityEngine.Debug.Log(next + "/" + my_path.Count);
-                float[] results = Steer(car_pos, smooth_path[next]);
-                float steer = -results[1] / max_steer_angle;
-                //UnityEngine.Debug.Log(" Steer: " + steer + " velocity: " + m_Car.CurrentSpeed + " accel: " + results[0] + " Brake: " + results[2]);
-                m_Car.Move(steer, results[0], 0f, results[2]);
-            }
-            */
-
             // Execute your path here
             // ...
+           
             Vector3 target_position = smooth_path[step];
             Vector3 current_position = transform.position;
             if (Vector3.Distance(target_position, current_position) < allow_error)
             {
-                if (step < =) 
+                if (step < smooth_path_len - 1)
+                    step++;
+                else
+                    return;
             }
-            //step = step + 1;
+            Vector3 target_velocity = (target_position - current_position) / Time.fixedDeltaTime;
+            Vector3 position_error = target_position - transform.position;
+            Vector3 velocity_error = target_velocity - my_rigidbody.velocity;
+            Vector3 desired_acceleration = k_p * position_error + k_d * velocity_error;
+            float steering = Vector3.Dot(desired_acceleration, transform.right);
+            float acceleration = Vector3.Dot(desired_acceleration, transform.forward);
+            Debug.Log("Steering:" + steering + " Acceleration:" + acceleration);
+            m_Car.Move(steering, acceleration, acceleration, 0f);
             print(step);
             
-            
-            //Vector3 target_velocity = (target_position - current_position) / Time.fixedDeltaTime;
-
-            // Vector3 position_error = target_position - transform.position;
-            //Vector3 velocity_error = target_velocity - my_rigidbody.velocity;
-            //Vector3 desired_acceleration = k_p * position_error + k_d * velocity_error;
-
-            //float steering = Vector3.Dot(desired_acceleration, transform.right);
-            //float acceleration = Vector3.Dot(desired_acceleration, transform.forward);
-
-            //Debug.Log("Steering:" + steering + " Acceleration:" + acceleration);
-            //m_Car.Move(steering, acceleration, acceleration, 0f);
-
            /*
             // this is how you access information about the terrain from the map
             int i = terrain_manager.myInfo.get_i_index(transform.position.x);
@@ -351,249 +208,7 @@ namespace UnityStandardAssets.Vehicles.Car
                 Debug.DrawRay(transform.position, closestObstacleInFront, Color.yellow);
                 Debug.Log("Did Hit");
             }
-
-            /*Vector3 relVect = my_goal_object.transform.position - transform.position;
-            bool is_in_front = Vector3.Dot(transform.forward, relVect) > 0f;
-            bool is_to_right = Vector3.Dot(transform.right, relVect) > 0f;
-
-            if(is_in_front && is_to_right)
-                m_Car.Move(1f, 1f, 0f, 0f);
-            if(is_in_front && !is_to_right)
-                m_Car.Move(-1f, 1f, 0f, 0f);
-            if(!is_in_front && is_to_right)
-                m_Car.Move(-1f, -1f, -1f, 0f);
-            if(!is_in_front && !is_to_right)
-                m_Car.Move(1f, -1f, -1f, 0f);*/
-
-            
-            /*
-            float xDist = pos[0] - curPos[0];
-            float zDist = pos[2] - curPos[2];
-
-            float newDistance = Mathf.Sqrt(Mathf.Pow(xDist, 2) + Mathf.Pow(zDist, 2));
-            float goalDistance = Mathf.Sqrt(Mathf.Pow(curPos[0] - goal_pos[0], 2) + Mathf.Pow(curPos[2] - goal_pos[2], 2));
-            if (newDistance < 5)
-            {
-                nextPoint = true;
-
-            }
-            if (newDistance < 1)
-            {
-                next++;
-                nextPoint = false;
-                sinceLastChange = 0;
-                if (nextnext <= next)
-                {
-                    nextnext = next + 1;
-                }
-            }
-            if (goalDistance < 10)
-            {
-                Done = true;
-                float[] ret = { 0f, 0f, 0f };
-                return ret;
-            }
-
-            float vectorAngle = Mathf.Atan(zDist / xDist);
-            if (
-                (xDist < 0 && zDist > 0 && vectorAngle < 0) // if car_next lies in the second quadrant
-                || (xDist < 0 && vectorAngle == 0) // if car_next lies on the x axis and points to the left
-                || (xDist < 0 && zDist < 0) // if car_next lies in the third quadrant
-            )
-            {
-                vectorAngle += Mathf.PI;
-            }
-            else if (xDist > 0 && zDist < 0)// if car_next lies in the fourth quadrant
-            {
-                vectorAngle += 2 * Mathf.PI;
-            }
-
-            float beta = 0;
-            if (vectorAngle < Mathf.PI / 2)
-            {
-                //UnityEngine.Debug.Log("Vector in the first quadrant");
-                if (theta < Mathf.PI / 2)
-                {
-                    //UnityEngine.Debug.Log("Theta in the first quadrant");
-                    beta = vectorAngle - theta;
-                }
-                else if (theta < Mathf.PI)
-                {
-                    //UnityEngine.Debug.Log("Theta in the second quadrant");
-                    beta = vectorAngle - theta;
-                }
-                else if (theta < 3 * Mathf.PI / 2)
-                {
-                    //UnityEngine.Debug.Log("Theta in the third quadrant");
-                    beta = -vectorAngle;
-                }
-                else if (theta < 2 * Mathf.PI)
-                {
-                    //UnityEngine.Debug.Log("Theta in the fourth quadrant");
-                    beta = 2 * Mathf.PI + vectorAngle - theta;
-                }
-            }
-            else if (vectorAngle < Mathf.PI)
-            {
-                //UnityEngine.Debug.Log("Vector in the second quadrant");
-                if (theta < Mathf.PI / 2)
-                {
-                    //UnityEngine.Debug.Log("Theta in the first quadrant");
-                    beta = vectorAngle - theta;
-                }
-                else if (theta < Mathf.PI)
-                {
-                    //UnityEngine.Debug.Log("Theta in the second quadrant");
-                    beta = vectorAngle - theta;
-                }
-                else if (theta < 3 * Mathf.PI / 2)
-                {
-                    //UnityEngine.Debug.Log("Theta in the third quadrant");
-                    beta = vectorAngle - theta;
-                }
-                else if (theta < 2 * Mathf.PI)
-                {
-                    //UnityEngine.Debug.Log("Theta in the fourth quadrant");
-                    beta = -vectorAngle;
-                }
-            }
-            else if (vectorAngle < 3 * Mathf.PI / 2)
-            {
-                //UnityEngine.Debug.Log("Vector in the third quadrant");
-                if (theta < Mathf.PI / 2)
-                {
-                    //UnityEngine.Debug.Log("Theta in the first quadrant");
-                    beta = vectorAngle;
-                }
-                else if (theta < Mathf.PI)
-                {
-                    //UnityEngine.Debug.Log("Theta in the second quadrant");
-                    beta = vectorAngle - theta;
-                }
-                else if (theta < 3 * Mathf.PI / 2)
-                {
-                    //UnityEngine.Debug.Log("Theta in the third quadrant");
-                    beta = vectorAngle - theta;
-                }
-                else if (theta < 2 * Mathf.PI)
-                {
-                    //UnityEngine.Debug.Log("Theta in the fourth quadrant");
-                    beta = vectorAngle - theta;
-                }
-            }
-            else if (vectorAngle < 2 * Mathf.PI)
-            {
-                //UnityEngine.Debug.Log("Vector in the fourth quadrant");
-                if (theta < Mathf.PI / 2)
-                {
-                    //UnityEngine.Debug.Log("Theta in the first quadrant");
-                    beta = -2 * Mathf.PI - vectorAngle - theta;
-                }
-                else if (theta < Mathf.PI)
-                {
-                    //UnityEngine.Debug.Log("Theta in the second quadrant");
-                    beta = -(Mathf.Sign(vectorAngle - Mathf.PI - theta));
-                }
-                else if (theta < 3 * Mathf.PI / 2)
-                {
-                    //UnityEngine.Debug.Log("Theta in the third quadrant");
-                    beta = vectorAngle - theta;
-                }
-                else if (theta < 2 * Mathf.PI)
-                {
-                    //UnityEngine.Debug.Log("Theta in the fourth quadrant");
-                    beta = vectorAngle - theta;
-                }
-            }
-            else
-            {
-                //UnityEngine.Debug.Log("None of the above. Should not happen.");
-                beta = vectorAngle - theta;
-            }
-
-            if (nextnext < smooth_path.Count)
-            {
-                float nextnextX = smooth_path[nextnext][0] - curPos[0];
-                float nextnextZ = smooth_path[nextnext][2] - curPos[2];
-                float nextnextdistance = Mathf.Sqrt(Mathf.Pow(nextnextX, 2) + Mathf.Pow(nextnextZ, 2));
-                if (nextnextdistance < 10)
-                {
-                    nextnext++;
-                }
-                float xNext = smooth_path[nextnext][0] - pos[0];
-                float zNext = smooth_path[nextnext][2] - pos[2];
-                float nextAngle = Mathf.Atan(zNext / xNext);
-                float nextBeta = 0;
-                if (
-                    (xNext < 0 && zNext > 0 && nextAngle < 0) // if car_next lies in the second quadrant
-                    || (xNext < 0 && nextAngle == 0) // if car_next lies on the x axis and points to the left
-                    || (xNext < 0 && zNext < 0) // if car_next lies in the third quadrant
-                )
-                {
-                    nextAngle += Mathf.PI;
-                }
-                else if (xNext > 0 && zNext < 0)// if car_next lies in the fourth quadrant
-                {
-                    nextAngle += 2 * Mathf.PI;
-                }
-                nextBeta = theta - nextAngle;
-
-                if (v < 30)
-                {
-                    Accel = 1f;
-                    footbreak = 0;
-                }
-                else if (nextBeta < Mathf.PI / 4 && nextBeta > -Mathf.PI / 4)
-                {
-                    Accel = 1f;
-                    if (newDistance < 20)
-                    {
-                        Accel = 0f;
-                    }
-                    //UnityEngine.Debug.Log("Next beta less than PI/4");
-                }
-                else if (nextBeta < Mathf.PI / 2 && nextBeta > -Mathf.PI / 2)
-                {
-                    if (newDistance > 30)
-                    {
-                        Accel = 0f;
-                    }
-                    else
-                    {
-                        Accel = 0f;
-                        footbreak = 1f;
-                    }
-                    //UnityEngine.Debug.Log("Next beta less than PI/2");
-                }
-                else if (nextBeta < 3 * Mathf.PI / 4 && nextBeta > -3 * Mathf.PI / 4)
-                {
-                    if (newDistance > 40)
-                    {
-                        Accel = 0;
-                    }
-                    else
-                    {
-                        Accel = 0;
-                        footbreak = 1f;
-                    }
-                    //UnityEngine.Debug.Log("Next beta more than PI/2");
-                }
-            }
-            if (beta < -max_steer_angle)
-            {
-                beta = -max_steer_angle;
-            }
-            else if (beta > max_steer_angle)
-            {
-                beta = max_steer_angle;
-            }
-            float[] results = { Accel, beta, footbreak };
-            return results;
-            */
-        }
-        public float nfmod(float a, float b)
-        {
-            return a - b * Mathf.Floor(a / b);
+           */
         }
         
     }
