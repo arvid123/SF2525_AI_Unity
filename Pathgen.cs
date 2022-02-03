@@ -203,12 +203,12 @@ namespace Assets.Scrips
             goal.drone_goal_vel = 0;
             start.drone_goal_vel = 0;
 
-            while (!current.cameFrom.cameFrom.Equals(start))
+            while (current.cameFrom.cameFrom != null)
                 {
                 Waypoint next = current.cameFrom;
                 Waypoint next_next = next.cameFrom;
 
-                float turn_angle_ratio = Vector3.Angle(current.pos - next.pos, next_next.pos - next.pos) / 180f;
+                float turn_angle_ratio = Mathf.Pow(Vector3.Angle(current.pos - next.pos, next_next.pos - next.pos) / 180f, 4);
                 next.drone_goal_vel = max_turning_velocity * turn_angle_ratio;
 
                 path.Push(current);
@@ -216,9 +216,18 @@ namespace Assets.Scrips
             }
             path.Push(current);
             path.Push(current.cameFrom);
-            path.Push(current.cameFrom.cameFrom);
 
             return path;
+        }
+
+        private float squared(float x)
+        {
+            return x * x;
+        }
+
+        private float cubed(float x)
+        {
+            return x * x * x;
         }
 
         public Stack<Waypoint> getSmoothPath()
