@@ -58,7 +58,7 @@ namespace UnityStandardAssets.Vehicles.Car
             my_rigidbody = GetComponent<Rigidbody>();
 
             my_path = new List<Vector3>();
-            pathgen = new Pathgen(terrain_manager, terrain_padding, 5f);
+            pathgen = new Pathgen(terrain_manager, terrain_padding, 5f, "car");
             chosen_path = new Stack<Waypoint>(new Stack<Waypoint>(pathgen.getOptimalPath()));
             //current_goal = chosen_path.Pop();
 
