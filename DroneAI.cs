@@ -16,7 +16,7 @@ public class DroneAI : MonoBehaviour
     float terrain_padding = 4f;
     Stack<Waypoint> chosen_path;
     Waypoint current_goal;
-    float goal_vel = 0;
+    float goal_vel = 15f;
     Pathgen pathgen;
     float driving_time_total = 0;
 
@@ -26,7 +26,7 @@ public class DroneAI : MonoBehaviour
         m_Drone = GetComponent<DroneController>();
         terrain_manager = terrain_manager_game_object.GetComponent<TerrainManager>();
 
-        pathgen = new Pathgen(terrain_manager, terrain_padding);
+        pathgen = new Pathgen(terrain_manager, terrain_padding, 15f);
         chosen_path = new Stack<Waypoint>(new Stack<Waypoint>(pathgen.getOptimalPath()));
         current_goal = chosen_path.Pop();
     }
@@ -45,10 +45,13 @@ public class DroneAI : MonoBehaviour
         if (chosen_path.Count == 0 && Vector3.Distance(current_goal.pos, dronePosition) < allowed_error)
         {
             Debug.Log(string.Format("Total driving time: {0}", driving_time_total));
+        } else
+        {
+            driving_time_total += Time.fixedDeltaTime;
         }
 
         // Change current goal if it is reached
-        if (Vector3.Distance(current_goal.pos, dronePosition) < allowed_error && chosen_path.Count > 0 && m_Drone.velocity.magnitude <= goal_vel + 0.1f)
+        if (Vector3.Distance(current_goal.pos, dronePosition) < allowed_error && chosen_path.Count > 0 && m_Drone.velocity.magnitude <= current_goal.drone_goal_vel + 0.1f)
         {
             current_goal = chosen_path.Pop();
         }
@@ -57,8 +60,8 @@ public class DroneAI : MonoBehaviour
         driving_direction = (current_goal.pos - dronePosition).normalized;
 
         // When we need to start breaking to reach the goal velocity at our current goal, start breaking
-        float break_distance = Mathf.Abs((goal_vel * goal_vel - m_Drone.velocity.magnitude * m_Drone.velocity.magnitude) / (2 * m_Drone.acceleration.magnitude));
-        if (break_distance >= Vector3.Distance(current_goal.pos, dronePosition) - allowed_error)
+        float break_distance = Mathf.Abs((current_goal.drone_goal_vel * current_goal.drone_goal_vel - m_Drone.velocity.magnitude * m_Drone.velocity.magnitude) / (2 * m_Drone.acceleration.magnitude));
+        if (m_Drone.velocity.magnitude > current_goal.drone_goal_vel && break_distance >= Vector3.Distance(current_goal.pos, dronePosition) - allowed_error)
         {
             driving_direction = -m_Drone.velocity.normalized;
         }
