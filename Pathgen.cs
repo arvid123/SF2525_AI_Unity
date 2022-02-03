@@ -16,7 +16,7 @@ namespace Assets.Scrips
         Stack<Waypoint> optimal_path;
         float max_turning_velocity;
 
-        public Pathgen(TerrainManager t, float tp, float mtv)
+        public Pathgen(TerrainManager t, float tp, float mtv, string vehicle)
         {
             terrain_manager = t;
             terrain_padding = tp;
@@ -26,6 +26,7 @@ namespace Assets.Scrips
             Vector3 goal_pos = terrain_manager.myInfo.goal_pos;
 
             my_path = new List<Vector3>();
+            Debug.DrawRay(start_pos, Vector3.forward, Color.magenta, 1000f);
 
             // Plan your path here
             // ...
@@ -116,22 +117,31 @@ namespace Assets.Scrips
             Waypoint goal = new Waypoint(goal_pos);
             wps.Add(start);
             wps.Add(goal);
-            
+
+            bool goal_within_padding = Physics.OverlapSphere(goal_pos, 0, LayerMask.GetMask("TransparentFX")).Length > 0;
 
             foreach (var w in wps)
             {
                 foreach (var otherw in wps)
                 {
-                    if (!w.pos.Equals(otherw.pos) && !Physics.Linecast(w.pos, otherw.pos) || ((w.Equals(goal) || otherw.Equals(goal)) && !Physics.Linecast(w.pos, otherw.pos, LayerMask.GetMask("Default"))))
+                    if ((!w.pos.Equals(otherw.pos) && !Physics.Linecast(w.pos, otherw.pos, LayerMask.GetMask("TransparentFX"))) || (goal_within_padding && ((w.Equals(goal) || otherw.Equals(goal)) && !Physics.Linecast(w.pos, otherw.pos, LayerMask.GetMask("Default")))))
                     {
                         w.neighbors.Add(otherw);
                         Debug.DrawLine(w.pos, otherw.pos, Color.red, 100f);
                     }
                 }
             }
+            Debug.Log(String.Format("Start neighbors: {0}", start.neighbors.Count));
 
             // Find optimal path and draw it
-            optimal_path = A_star(start, goal, wps);
+            if (vehicle == "car")
+            {
+                optimal_path = A_star(start, goal, wps, car_g, car_h);
+            } else
+            {
+                optimal_path = A_star(start, goal, wps, drone_g, drone_h);
+            }
+
             Stack<Waypoint> path = new Stack<Waypoint>(new Stack<Waypoint>(optimal_path));
             
             Debug.Log(path.Count);
@@ -157,7 +167,7 @@ namespace Assets.Scrips
         }
 
         // https://en.wikipedia.org/wiki/A*_search_algorithm 
-        public Stack<Waypoint> A_star(Waypoint start, Waypoint goal, List<Waypoint> waypoints)
+        public Stack<Waypoint> A_star(Waypoint start, Waypoint goal, List<Waypoint> waypoints, Func<Waypoint, Waypoint, Waypoint, Waypoint, List<Waypoint>, double> g, Func<Waypoint, Waypoint, double> h)
         {
             SimplePriorityQueue<Waypoint, double> openSet = new SimplePriorityQueue<Waypoint, double>();
             openSet.Enqueue(start, double.PositiveInfinity);
@@ -173,7 +183,12 @@ namespace Assets.Scrips
 
                 foreach (var neighbor in current.neighbors)
                 {
-                    double tentative_gScore = current.gScore + Vector3.Distance(current.pos, neighbor.pos);
+                    double tentative_gScore = current.gScore + g(start, goal, current, neighbor, waypoints);
+                    if (current.Equals(start))
+                    {
+                        Debug.Log(String.Format("Neighbor coords: {0}, {1}", neighbor.pos.x, neighbor.pos.z));
+                        Debug.Log(String.Format("G score: {0}", tentative_gScore));
+                    }
                     if (tentative_gScore < neighbor.gScore)
                     {
                         // This path to neighbor is better than any other recorded one.
@@ -189,8 +204,38 @@ namespace Assets.Scrips
             return null;
         }
 
+        private double car_g(Waypoint start, Waypoint goal, Waypoint current, Waypoint neighbor, List<Waypoint> wps)
+        {
+            double g = Vector3.Distance(current.pos, neighbor.pos);
+            if (current.Equals(start))
+            {
+                g += Vector3.Angle(Vector3.forward, neighbor.pos - current.pos);
+            } else if (current.cameFrom != null)
+            {
+                g += Vector3.Angle(current.cameFrom.pos - current.pos, neighbor.pos - current.pos) * 0.1f;
+            }
+            return g;
+        }
+
+        private double drone_g(Waypoint start, Waypoint goal, Waypoint current, Waypoint neighbor, List<Waypoint> wps)
+        {
+            double g = Vector3.Distance(current.pos, neighbor.pos);
+
+            if (current.cameFrom != null)
+            {
+                g += Vector3.Angle(current.cameFrom.pos - current.pos, neighbor.pos - current.pos) * 0.1f;
+            }
+
+            return g;
+        }
+
         // The heuristic for the A* algorithm
-        private double h(Waypoint w, Waypoint goal)
+        private double drone_h(Waypoint w, Waypoint goal)
+        {
+            return Vector3.Distance(w.pos, goal.pos);
+        }
+
+        private double car_h(Waypoint w, Waypoint goal)
         {
             return Vector3.Distance(w.pos, goal.pos);
         }
@@ -208,7 +253,7 @@ namespace Assets.Scrips
                 Waypoint next = current.cameFrom;
                 Waypoint next_next = next.cameFrom;
 
-                float turn_angle_ratio = Mathf.Pow(Vector3.Angle(current.pos - next.pos, next_next.pos - next.pos) / 180f, 4);
+                float turn_angle_ratio = Mathf.Pow(Vector3.Angle(current.pos - next.pos, next_next.pos - next.pos) / 180f, 5);
                 next.drone_goal_vel = max_turning_velocity * turn_angle_ratio;
 
                 path.Push(current);

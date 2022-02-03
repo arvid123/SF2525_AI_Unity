@@ -19,6 +19,7 @@ public class DroneAI : MonoBehaviour
     float goal_vel = 15f;
     Pathgen pathgen;
     float driving_time_total = 0;
+    bool finished = false;
 
     private void Awake()
     {
@@ -26,7 +27,7 @@ public class DroneAI : MonoBehaviour
         m_Drone = GetComponent<DroneController>();
         terrain_manager = terrain_manager_game_object.GetComponent<TerrainManager>();
 
-        pathgen = new Pathgen(terrain_manager, terrain_padding, 15f);
+        pathgen = new Pathgen(terrain_manager, terrain_padding, 15f, "drone");
         chosen_path = new Stack<Waypoint>(new Stack<Waypoint>(pathgen.getOptimalPath()));
         current_goal = chosen_path.Pop();
     }
@@ -38,12 +39,12 @@ public class DroneAI : MonoBehaviour
         // ...
         Vector3 driving_direction = Vector3.zero;
         float gas = 1f;
-        float allowed_error = 1f;
+        float allowed_error = 2f;
         Vector3 dronePosition = new Vector3(transform.position.x, 0f, transform.position.z);
-
         // Stopwatch
-        if (chosen_path.Count == 0 && Vector3.Distance(current_goal.pos, dronePosition) < allowed_error)
+        if (!finished && chosen_path.Count == 0 && Vector3.Distance(current_goal.pos, dronePosition) < allowed_error)
         {
+            finished = true;
             Debug.Log(string.Format("Total driving time: {0}", driving_time_total));
         } else
         {
@@ -51,7 +52,7 @@ public class DroneAI : MonoBehaviour
         }
 
         // Change current goal if it is reached
-        if (Vector3.Distance(current_goal.pos, dronePosition) < allowed_error && chosen_path.Count > 0 && m_Drone.velocity.magnitude <= current_goal.drone_goal_vel + 0.1f)
+        if (Vector3.Distance(current_goal.pos, dronePosition) < allowed_error && chosen_path.Count > 0)
         {
             current_goal = chosen_path.Pop();
         }
@@ -66,16 +67,18 @@ public class DroneAI : MonoBehaviour
             driving_direction = -m_Drone.velocity.normalized;
         }
         // Collision avoidance using sensors
-        /*float bubble_range = 6f;
+        float bubble_range = 3f;
         Vector3 bounce_vec = Vector3.zero;
+        float bounce_factor = 3f;
         for (int k = 0; k < 8; k++)
         {
             Vector3 ray_direction = new Vector3(Mathf.Cos(k * Mathf.PI / 4), 0, Mathf.Sin(k * Mathf.PI / 4));
             if (Physics.Raycast(transform.position, ray_direction, bubble_range)) {
                 bounce_vec = (-ray_direction); 
             }
-        }*/
-
+        }
+        driving_direction = (driving_direction + bounce_vec * bounce_factor).normalized;
+        
         driving_direction = driving_direction * gas;
         m_Drone.Move(driving_direction.x, driving_direction.z);
 
