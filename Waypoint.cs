@@ -13,6 +13,7 @@ namespace Assets.Scrips
         public List<Waypoint> neighbors { get; set; }
         public Waypoint cameFrom { get; set; }
         public double gScore { get; set; }
+        public float drone_goal_vel { get; set; }
 
         public Waypoint(Vector3 position) 
         {

@@ -14,11 +14,13 @@ namespace Assets.Scrips
         float terrain_padding;
         List<Vector3> my_path;
         Stack<Waypoint> optimal_path;
+        float max_turning_velocity;
 
-        public Pathgen(TerrainManager t, float tp)
+        public Pathgen(TerrainManager t, float tp, float mtv)
         {
             terrain_manager = t;
             terrain_padding = tp;
+            max_turning_velocity = mtv;
 
             Vector3 start_pos = terrain_manager.myInfo.start_pos;
             Vector3 goal_pos = terrain_manager.myInfo.goal_pos;
@@ -114,13 +116,13 @@ namespace Assets.Scrips
             Waypoint goal = new Waypoint(goal_pos);
             wps.Add(start);
             wps.Add(goal);
+            
 
             foreach (var w in wps)
             {
                 foreach (var otherw in wps)
                 {
-                    RaycastHit hit;
-                    if ((!Physics.Linecast(w.pos, otherw.pos) && !w.pos.Equals(otherw.pos)) || ((w.Equals(goal) || otherw.Equals(goal) || w.Equals(start) || otherw.Equals(start)) && !Physics.Linecast(w.pos, otherw.pos, LayerMask.GetMask("Default"))))
+                    if (!w.pos.Equals(otherw.pos) && !Physics.Linecast(w.pos, otherw.pos) || ((w.Equals(goal) || otherw.Equals(goal)) && !Physics.Linecast(w.pos, otherw.pos, LayerMask.GetMask("Default"))))
                     {
                         w.neighbors.Add(otherw);
                         Debug.DrawLine(w.pos, otherw.pos, Color.red, 100f);
@@ -137,6 +139,7 @@ namespace Assets.Scrips
             while (path.Count > 0)
             {
                 Waypoint next = path.Pop();
+                Debug.Log(current.drone_goal_vel);
                 Debug.DrawLine(current.pos, next.pos, Color.yellow, 1000f);
                 current = next;
             }
@@ -182,6 +185,7 @@ namespace Assets.Scrips
             }
 
             // Should be unreachable
+            Debug.Log("A* failed");
             return null;
         }
 
@@ -191,16 +195,28 @@ namespace Assets.Scrips
             return Vector3.Distance(w.pos, goal.pos);
         }
 
+        // Create stack of waypoints and also add drone_goal_vel depending on the angle between the points
         private Stack<Waypoint> reconstruct_path(Waypoint start, Waypoint goal)
         {
             Stack<Waypoint> path = new Stack<Waypoint>();
             Waypoint current = goal;
-            while (!current.Equals(start))
+            goal.drone_goal_vel = 0;
+            start.drone_goal_vel = 0;
+
+            do
             {
+                Waypoint next = current.cameFrom;
+                Waypoint next_next = next.cameFrom;
+
+                float turn_angle_ratio = Vector3.Angle(current.pos - next.pos, next_next.pos - next.pos) / 180f;
+                next.drone_goal_vel = max_turning_velocity * turn_angle_ratio;
+
                 path.Push(current);
-                current = current.cameFrom;
-            }
+                current = next;
+            } while (!current.cameFrom.cameFrom.Equals(start));
             path.Push(current);
+            path.Push(current.cameFrom);
+            path.Push(current.cameFrom.cameFrom);
 
             return path;
         }
