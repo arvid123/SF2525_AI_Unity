@@ -20,7 +20,7 @@ namespace UnityStandardAssets.Vehicles.Car
         List<Vector3> my_path;
         List<Vector3> smooth_path;
 
-        float terrain_padding = 4f;
+        float terrain_padding = 6f;
 
 
         /*
@@ -46,7 +46,7 @@ namespace UnityStandardAssets.Vehicles.Car
         public int step;
         public float k_p = 2f;
         public float k_d = 0.5f;
-        public float allow_error = 3.0f;
+        public float allow_error = 1.0f;
         public bool isloop;
         Rigidbody my_rigidbody;
         
@@ -145,7 +145,7 @@ namespace UnityStandardAssets.Vehicles.Car
 
 
             // initialize the control
-            step = 0;
+            step = 1;
         }
 
         public static Vector3[] GetBezierCurveWithThreePoints(Vector3 point_1, Vector3 point_2, Vector3 point_3, int vertexCount)
@@ -173,15 +173,24 @@ namespace UnityStandardAssets.Vehicles.Car
            
             Vector3 target_position = smooth_path[step];
             Vector3 current_position = transform.position;
+            
             if (Vector3.Distance(target_position, current_position) < allow_error)
             {
                 if (step < smooth_path_len - 1)
+                {
                     step++;
+                    target_position = smooth_path[step];
+                }
                 else
                     return;
             }
-            Vector3 target_velocity = (target_position - current_position) / Time.fixedDeltaTime;
-            Vector3 position_error = target_position - transform.position;
+
+            Vector3 target_velocity = (target_position - target_position) / Time.fixedDeltaTime;
+            if (step >=0)
+            {
+                target_velocity = (target_position - smooth_path[step - 1]) / Time.fixedDeltaTime;
+            }
+            Vector3 position_error = target_position - current_position;
             Vector3 velocity_error = target_velocity - my_rigidbody.velocity;
             Vector3 desired_acceleration = k_p * position_error + k_d * velocity_error;
             float steering = Vector3.Dot(desired_acceleration, transform.right);
