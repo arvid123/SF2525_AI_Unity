@@ -203,8 +203,8 @@ namespace Assets.Scrips
             goal.drone_goal_vel = 0;
             start.drone_goal_vel = 0;
 
-            do
-            {
+            while (!current.cameFrom.cameFrom.Equals(start))
+                {
                 Waypoint next = current.cameFrom;
                 Waypoint next_next = next.cameFrom;
 
@@ -213,7 +213,7 @@ namespace Assets.Scrips
 
                 path.Push(current);
                 current = next;
-            } while (!current.cameFrom.cameFrom.Equals(start));
+            }
             path.Push(current);
             path.Push(current.cameFrom);
             path.Push(current.cameFrom.cameFrom);
@@ -221,6 +221,110 @@ namespace Assets.Scrips
             return path;
         }
 
+        public Stack<Waypoint> getSmoothPath()
+        {
+            var chosen_path = getOptimalPath();
+            List<Vector3> smooth_path;
+            // linear interpolation
+            int chosen_path_len = 1;
+            int cps_len = 1;
+            int num_interpolation;
+            Waypoint current = chosen_path.Pop();
+            List<Vector3> cps = new List<Vector3>(); // create contol points
+            cps.Add(current.pos);
+            // UnityEngine.Debug.Log("cps" + current.pos);
+            while (chosen_path.Count > 0)
+            {
+                Waypoint next = chosen_path.Pop();
+                float linear_dis = Vector3.Distance(current.pos, next.pos);
+                //UnityEngine.Debug.Log("Linear distance" + linear_dis);
+                num_interpolation = (int)Math.Ceiling(linear_dis / 4);
+                UnityEngine.Debug.Log("num_interpolation" + num_interpolation);
+                for (int i = 1; i <= num_interpolation; i++)
+                {
+                    float rate = (float)i / num_interpolation;
+                    Vector3 add_point = Vector3.Lerp(current.pos, next.pos, rate);
+                    cps.Add(add_point);
+                    //UnityEngine.Debug.Log("cps"+ add_point);
+                }
+                chosen_path_len++;
+                cps_len += num_interpolation;
+                current = next;
+            }
+            //UnityEngine.Debug.Log("Linear Path Length " + chosen_path_len);
+            //UnityEngine.Debug.Log("Possible Control points Length " + cps_len);
+
+            List<Vector3> cps_new = new List<Vector3>(); // create contol points
+            int cps_new_len = 0;
+            int interval = 4;
+            for (int i = 0; i < cps_len - 1; i++)
+            {
+                if ((i % interval) == 0)
+                {
+                    cps_new.Add(cps[i]);
+                    //UnityEngine.Debug.Log("cps_new" + cps[i]);
+                    cps_new_len++;
+                }
+            }
+            cps_new.Add(cps[cps_len - 1]);
+            //UnityEngine.Debug.Log("cps_new" + cps[cps_len - 1]);
+            cps_new_len++;
+            //UnityEngine.Debug.Log("Control points Length" + cps_new_len);
+
+            Vector3 old_cp = cps_new[0];
+            foreach (var cp in cps_new)
+            {
+                //Debug.DrawLine(old_cp, cp, Color.red, 100f);
+                old_cp = cp;
+            }
+
+            // Smoothness
+            SplineCurve curve = new SplineCurve();
+            foreach (var cp in cps_new)
+            {
+                curve.AddNode(cp);
+            }
+            curve.AddCatmull_RomControl();
+            smooth_path = new List<Vector3>(); //create smooth path
+            for (int i = 0; i < curve.segmentList.Count; i++)
+            {
+                float add = 1f / 10;  // 表示两个关键点之间取20个点，可根据需要设置
+                for (float j = 0; j < 1; j += add)
+                {
+                    Vector3 point = curve.segmentList[i].GetPoint(j);
+                    smooth_path.Add(point);
+                }
+            }
+
+            Vector3 old_sp = smooth_path[0];
+            foreach (var sp in smooth_path)
+            {
+                Debug.DrawLine(old_sp, sp, Color.blue, 100f);
+                old_sp = sp;
+            }
+            //UnityEngine.Debug.Log("Smooth Path Length " + smooth_path_len);
+
+            Stack<Waypoint> path = new Stack<Waypoint>(smooth_path.ConvertAll<Waypoint>(x => new Waypoint(x)));
+            Waypoint current_point = path.Pop();
+            Waypoint next_point = path.Pop();
+            Waypoint next_next = path.Pop();
+            Stack<Waypoint> smooth_stack = new Stack<Waypoint>();
+
+            do
+            {
+
+                float turn_angle_ratio = Vector3.Angle(current_point.pos - next_point.pos, next_next.pos - next_point.pos) / 180f;
+                next_point.drone_goal_vel = max_turning_velocity * turn_angle_ratio;
+
+                smooth_stack.Push(current_point);
+                current_point = next_point;
+                next_point = next_next;
+                next_next = path.Pop();
+            } while (path.Count > 0);
+            smooth_stack.Push(next_next);
+
+            return smooth_stack;
+        }
 
     }
 }

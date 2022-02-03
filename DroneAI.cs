@@ -16,7 +16,7 @@ public class DroneAI : MonoBehaviour
     float terrain_padding = 4f;
     Stack<Waypoint> chosen_path;
     Waypoint current_goal;
-    float goal_vel = 0;
+    float goal_vel = 15f;
     Pathgen pathgen;
     float driving_time_total = 0;
 
@@ -26,7 +26,7 @@ public class DroneAI : MonoBehaviour
         m_Drone = GetComponent<DroneController>();
         terrain_manager = terrain_manager_game_object.GetComponent<TerrainManager>();
 
-        pathgen = new Pathgen(terrain_manager, terrain_padding, 5f);
+        pathgen = new Pathgen(terrain_manager, terrain_padding, 15f);
         chosen_path = new Stack<Waypoint>(new Stack<Waypoint>(pathgen.getOptimalPath()));
         current_goal = chosen_path.Pop();
     }
@@ -61,7 +61,7 @@ public class DroneAI : MonoBehaviour
 
         // When we need to start breaking to reach the goal velocity at our current goal, start breaking
         float break_distance = Mathf.Abs((current_goal.drone_goal_vel * current_goal.drone_goal_vel - m_Drone.velocity.magnitude * m_Drone.velocity.magnitude) / (2 * m_Drone.acceleration.magnitude));
-        if (break_distance >= Vector3.Distance(current_goal.pos, dronePosition) - allowed_error)
+        if (m_Drone.velocity.magnitude > current_goal.drone_goal_vel && break_distance >= Vector3.Distance(current_goal.pos, dronePosition) - allowed_error)
         {
             driving_direction = -m_Drone.velocity.normalized;
         }
