@@ -23,7 +23,7 @@ public class DroneAI : MonoBehaviour
     float threshold_error = 1f;
     Rigidbody my_rigidbody;
     float k_p = 1f;
-    float k_d = 6f;
+    float k_d = 1f;
     Vector3 target_position;
     Vector3 old_target_pos;
     Vector3 target_velocity;
@@ -36,7 +36,7 @@ public class DroneAI : MonoBehaviour
         m_Drone = GetComponent<DroneController>();
         terrain_manager = terrain_manager_game_object.GetComponent<TerrainManager>();
 
-        pathgen = new Pathgen(terrain_manager, terrain_padding, 15f, "drone");
+        pathgen = new Pathgen(terrain_manager, terrain_padding, 10f, "drone");
         chosen_path = pathgen.getBezierPath();
         var drawing_path = new Stack<Waypoint>(new Stack<Waypoint>(chosen_path));
         var current = drawing_path.Pop();
@@ -77,12 +77,21 @@ public class DroneAI : MonoBehaviour
         // a PD-controller to get desired velocity
         Vector3 position_error = target_position - dronePosition;
         Vector3 velocity_error = target_velocity - m_Drone.velocity;
+
         Vector3 desired_acceleration = k_p * position_error + k_d * velocity_error;
 
         //Debug.DrawLine(target_position, target_position + target_velocity, Color.red);
         //Debug.DrawLine(transform.position, transform.position + my_rigidbody.velocity, Color.blue);
         Debug.DrawLine(dronePosition, dronePosition + desired_acceleration, Color.red);
-        Debug.DrawLine(dronePosition, target_position, Color.cyan);
+        //Debug.DrawLine(dronePosition, dronePosition + velocity_error, Color.red);
+        //Debug.DrawLine(dronePosition, dronePosition + position_error, Color.yellow);
+
+        // When we need to start breaking to reach the goal velocity at our current goal, start breaking
+        float break_distance = Mathf.Abs((current_goal.drone_goal_vel.magnitude * current_goal.drone_goal_vel.magnitude - m_Drone.velocity.magnitude * m_Drone.velocity.magnitude) / (2 * m_Drone.acceleration.magnitude));
+        if (m_Drone.velocity.magnitude > current_goal.drone_goal_vel.magnitude && break_distance >= Vector3.Distance(current_goal.pos, dronePosition) - allowed_error)
+        {
+            desired_acceleration = -m_Drone.velocity.normalized;
+        }
 
         // this is how you control the car
         //if (m_Drone.velocity.magnitude > current_goal.drone_goal_vel.magnitude)
@@ -91,7 +100,7 @@ public class DroneAI : MonoBehaviour
         //}
         //else
         //{
-            m_Drone.Move(desired_acceleration.x, desired_acceleration.z);
+        m_Drone.Move(desired_acceleration.x, desired_acceleration.z);
         //}
 
 
