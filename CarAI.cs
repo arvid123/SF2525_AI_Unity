@@ -4,6 +4,9 @@ using UnityEngine;
 using System;
 using Priority_Queue;
 using Assets.Scrips;
+using MathWorks.MATLAB.NET.Arrays;
+using MathWorks.MATLAB.NET.Utility;
+using Add_ab;
 
 namespace UnityStandardAssets.Vehicles.Car
 {
@@ -53,6 +56,11 @@ namespace UnityStandardAssets.Vehicles.Car
         
         private void Start()
         {
+            int a = 1;
+            int b = 3;
+            Class1 c = new Class1();
+            c.Add_ab(a, b);
+
             // get the Car controller
             m_Car = GetComponent<CarController>();
             terrain_manager = terrain_manager_game_object.GetComponent<TerrainManager>();
@@ -80,7 +88,7 @@ namespace UnityStandardAssets.Vehicles.Car
                 float linear_dis = Vector3.Distance(current.pos, next.pos);
                 //UnityEngine.Debug.Log("Linear distance" + linear_dis);
                 //num_interpolation = (int)Math.Ceiling(linear_dis / 2);
-                num_interpolation = 11; // 
+                num_interpolation = 11; //  //
                 //UnityEngine.Debug.Log("num_interpolation" + num_interpolation);
                 for (int i=1; i<= num_interpolation; i++)
                 {
@@ -93,7 +101,7 @@ namespace UnityStandardAssets.Vehicles.Car
                     if (i == 9) // //
                         cps_new.Add(add_point); // //
                 }
-                cps_new_len += 2;
+                cps_new_len += 2; // //
                 // cps_new.Add(next.pos);// //
                 // cps_new_len++; // //
                 chosen_path_len++;
@@ -159,7 +167,7 @@ namespace UnityStandardAssets.Vehicles.Car
             
             List<float> curvature = new List<float>();
             smooth_speed = new List<float>();
-            float yaw_rate = 0.5f;
+            float yaw_rate = 0.05f;
             for (int i = 0; i< smooth_path_len; i++)
             {
                 if (i == 0)
@@ -176,8 +184,8 @@ namespace UnityStandardAssets.Vehicles.Car
                 {
                     curvature.Add(Vector3.Angle(smooth_path[i] - smooth_path[i - 1], smooth_path[i + 1] - smooth_path[i]));
                     smooth_speed.Add((1.0f / curvature[i]) * yaw_rate);
-                    if (smooth_speed[i] > 1.0f)
-                        smooth_speed[i] = 1.0f;
+                    if (smooth_speed[i] > 0.1f)
+                        smooth_speed[i] = 0.1f;
                     //if (smooth_speed[i] < 1.0f)
                     //    smooth_speed[i] = 1.0f;
                 }
