@@ -20,6 +20,15 @@ public class DroneAI : MonoBehaviour
     Pathgen pathgen;
     float driving_time_total = 0;
     bool finished = false;
+    float threshold_error = 1f;
+    Rigidbody my_rigidbody;
+    float k_p = 1f;
+    float k_d = 6f;
+    Vector3 target_position;
+    Vector3 old_target_pos;
+    Vector3 target_velocity;
+    float time_since_target_pos;
+    float allowed_error = 1f;
 
     private void Awake()
     {
@@ -28,13 +37,66 @@ public class DroneAI : MonoBehaviour
         terrain_manager = terrain_manager_game_object.GetComponent<TerrainManager>();
 
         pathgen = new Pathgen(terrain_manager, terrain_padding, 15f, "drone");
-        chosen_path = new Stack<Waypoint>(new Stack<Waypoint>(pathgen.getOptimalPath()));
+        chosen_path = pathgen.getBezierPath();
+        var drawing_path = new Stack<Waypoint>(new Stack<Waypoint>(chosen_path));
+        var current = drawing_path.Pop();
+        while (drawing_path.Count > 0)
+        {
+            var next = drawing_path.Pop();
+            Debug.DrawLine(current.pos, next.pos, Color.cyan, 10000f);
+            current = next;
+        }
         current_goal = chosen_path.Pop();
+        my_rigidbody = GetComponent<Rigidbody>();
     }
 
+    private Vector3 rotate_vector(Vector3 v, float radians)
+    {
+        return new Vector3(Mathf.Cos(radians)*v.x - Mathf.Sin(radians)*v.z, 0, Mathf.Sin(radians)*v.x + Mathf.Cos(radians)*v.z);
+    }
 
     private void FixedUpdate()
     {
+        // keep track of target position and velocity
+        Vector3 dronePosition = new Vector3(transform.position.x, 0f, transform.position.z);
+        Vector3 target_position = current_goal.pos;
+        time_since_target_pos += Time.fixedDeltaTime;
+        // Change current goal if it is reached
+        if (Vector3.Distance(current_goal.pos, dronePosition) < allowed_error && chosen_path.Count > 0)
+        {
+            old_target_pos = target_position;
+            current_goal = chosen_path.Pop();
+            target_position = current_goal.pos;
+            //target_velocity = (target_position - old_target_pos) / time_since_target_pos;
+            target_velocity = current_goal.drone_goal_vel;
+            time_since_target_pos = 0;
+        }
+
+        
+
+        // a PD-controller to get desired velocity
+        Vector3 position_error = target_position - dronePosition;
+        Vector3 velocity_error = target_velocity - m_Drone.velocity;
+        Vector3 desired_acceleration = k_p * position_error + k_d * velocity_error;
+
+        //Debug.DrawLine(target_position, target_position + target_velocity, Color.red);
+        //Debug.DrawLine(transform.position, transform.position + my_rigidbody.velocity, Color.blue);
+        Debug.DrawLine(dronePosition, dronePosition + desired_acceleration, Color.red);
+        Debug.DrawLine(dronePosition, target_position, Color.cyan);
+
+        // this is how you control the car
+        //if (m_Drone.velocity.magnitude > current_goal.drone_goal_vel.magnitude)
+        //{
+        //    m_Drone.Move(-m_Drone.velocity.normalized.x * 15f, -m_Drone.velocity.normalized.z * 15f);
+        //}
+        //else
+        //{
+            m_Drone.Move(desired_acceleration.x, desired_acceleration.z);
+        //}
+
+
+        /*
+
         // Execute your path here
         // ...
         Vector3 driving_direction = Vector3.zero;
@@ -95,6 +157,8 @@ public class DroneAI : MonoBehaviour
 
         // this is how you control the car
         // m_Drone.Move(0.4f * Mathf.Sin(Time.time * 1.9f), 0.1f);
+
+        */
 
     }
 
