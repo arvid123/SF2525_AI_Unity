@@ -19,6 +19,7 @@ namespace UnityStandardAssets.Vehicles.Car
 
         List<Vector3> my_path;
         List<Vector3> smooth_path;
+        List<float> smooth_speed;
 
         float terrain_padding = 4f;
 
@@ -69,13 +70,17 @@ namespace UnityStandardAssets.Vehicles.Car
             Waypoint current = chosen_path.Pop();
             List<Vector3> cps = new List<Vector3>(); // create contol points
             cps.Add(current.pos);
+            List<Vector3> cps_new = new List<Vector3>(); // //
+            int cps_new_len = 1; // //
+            cps_new.Add(current.pos); // //
             // UnityEngine.Debug.Log("cps" + current.pos);
             while (chosen_path.Count > 0)
             {
                 Waypoint next = chosen_path.Pop();
                 float linear_dis = Vector3.Distance(current.pos, next.pos);
                 //UnityEngine.Debug.Log("Linear distance" + linear_dis);
-                num_interpolation = (int)Math.Ceiling(linear_dis / 4);
+                //num_interpolation = (int)Math.Ceiling(linear_dis / 2);
+                num_interpolation = 11; // 
                 //UnityEngine.Debug.Log("num_interpolation" + num_interpolation);
                 for (int i=1; i<= num_interpolation; i++)
                 {
@@ -83,7 +88,14 @@ namespace UnityStandardAssets.Vehicles.Car
                     Vector3 add_point = Vector3.Lerp(current.pos, next.pos, rate);
                     cps.Add(add_point);
                     //UnityEngine.Debug.Log("cps"+ add_point);
+                    if (i == 2) // //
+                        cps_new.Add(add_point); // //
+                    if (i == 9) // //
+                        cps_new.Add(add_point); // //
                 }
+                cps_new_len += 2;
+                // cps_new.Add(next.pos);// //
+                // cps_new_len++; // //
                 chosen_path_len++;
                 cps_len += num_interpolation;
                 current = next;
@@ -91,6 +103,7 @@ namespace UnityStandardAssets.Vehicles.Car
             //UnityEngine.Debug.Log("Linear Path Length " + chosen_path_len);
             //UnityEngine.Debug.Log("Possible Control points Length " + cps_len);
 
+            /*
             List<Vector3> cps_new = new List<Vector3>(); // create contol points
             int cps_new_len = 0;
             int interval = 4;
@@ -107,7 +120,7 @@ namespace UnityStandardAssets.Vehicles.Car
             //UnityEngine.Debug.Log("cps_new" + cps[cps_len - 1]);
             cps_new_len++;
             //UnityEngine.Debug.Log("Control points Length" + cps_new_len);
-
+            */
             Vector3 old_cp = cps_new[0];
             foreach (var cp in cps_new)
             {
@@ -143,6 +156,34 @@ namespace UnityStandardAssets.Vehicles.Car
             }
             //UnityEngine.Debug.Log("Smooth Path Length " + smooth_path_len);
 
+            
+            List<float> curvature = new List<float>();
+            smooth_speed = new List<float>();
+            float yaw_rate = 0.5f;
+            for (int i = 0; i< smooth_path_len; i++)
+            {
+                if (i == 0)
+                {
+                    curvature.Add(Vector3.Angle(smooth_path[i] - smooth_path[i], smooth_path[i + 1] - smooth_path[i]));
+                    smooth_speed.Add(0);
+                }
+                else if (i == (smooth_path_len - 1))
+                {
+                    curvature.Add(Vector3.Angle(smooth_path[i] - smooth_path[i - 1], smooth_path[i] - smooth_path[i]));
+                    smooth_speed.Add(0);
+                }
+                else
+                {
+                    curvature.Add(Vector3.Angle(smooth_path[i] - smooth_path[i - 1], smooth_path[i + 1] - smooth_path[i]));
+                    smooth_speed.Add((1.0f / curvature[i]) * yaw_rate);
+                    if (smooth_speed[i] > 1.0f)
+                        smooth_speed[i] = 1.0f;
+                    //if (smooth_speed[i] < 1.0f)
+                    //    smooth_speed[i] = 1.0f;
+                }
+                UnityEngine.Debug.Log("Curvature" + curvature[i] + "Smooth speed" + smooth_speed[i]);
+            }
+            
 
             // initialize the control
             step = 1;
@@ -225,7 +266,9 @@ namespace UnityStandardAssets.Vehicles.Car
                 target_velocity = (target_position - target_position) / Time.fixedDeltaTime;
             }
             */
-            Vector3 target_velocity = (target_position- smooth_path[step -1]) / Time.fixedDeltaTime;
+
+            //Vector3 target_velocity = (target_position- smooth_path[step -1]) / Time.fixedDeltaTime;
+            Vector3 target_velocity = ((target_position - smooth_path[step - 1]) / Time.fixedDeltaTime).normalized * smooth_speed[step];
             Vector3 position_error = target_position - current_position;
             Vector3 velocity_error = target_velocity - my_rigidbody.velocity;
             Vector3 desired_acceleration = k_p * position_error + k_d * velocity_error;
@@ -242,17 +285,22 @@ namespace UnityStandardAssets.Vehicles.Car
                 acceleration = acceleration * rate;
             }
             */
-            //Debug.Log("Steering:" + steering + " Acceleration:" + acceleration);
-            //m_Car.Move(steering, acceleration, acceleration, 0f);
-           if (step < smooth_path_len - 25)
+            Debug.Log("Steering:" + steering + " Acceleration:" + acceleration);
+            m_Car.Move(steering, acceleration, acceleration, 0f);
+
+
+            /*
+            if (step < smooth_path_len - 25)
                 m_Car.Move(steering, acceleration, acceleration, 0f);
                 driving_time_total += Time.fixedDeltaTime;
 
             if (step >= smooth_path_len - 25)
                 m_Car.Move(steering, 0.0f, -1.0f, 0f);
                 driving_time_total += Time.fixedDeltaTime;
-            print(driving_time_total);
+            //print(driving_time_total);
             //print(step);
+            */
+            
 
             /*
                 // this is how you access information about the terrain from the map
