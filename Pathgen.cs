@@ -212,7 +212,7 @@ namespace Assets.Scrips
                 g += Vector3.Angle(Vector3.forward, neighbor.pos - current.pos);
             } else if (current.cameFrom != null)
             {
-                g += Vector3.Angle(current.cameFrom.pos - current.pos, neighbor.pos - current.pos) * 0.1f;
+                g += Vector3.Angle(current.cameFrom.pos - current.pos, neighbor.pos - current.pos) * 0.35f;
             }
             return g;
         }
@@ -245,16 +245,16 @@ namespace Assets.Scrips
         {
             Stack<Waypoint> path = new Stack<Waypoint>();
             Waypoint current = goal;
-            goal.drone_goal_vel = 0;
-            start.drone_goal_vel = 0;
+            goal.drone_goal_vel = Vector3.forward * 15f;
+            start.drone_goal_vel = Vector3.forward * 15f;
 
             while (current.cameFrom.cameFrom != null)
                 {
                 Waypoint next = current.cameFrom;
                 Waypoint next_next = next.cameFrom;
 
-                float turn_angle_ratio = Mathf.Pow(Vector3.Angle(current.pos - next.pos, next_next.pos - next.pos) / 180f, 5);
-                next.drone_goal_vel = max_turning_velocity * turn_angle_ratio;
+                float turn_angle_ratio = Mathf.Pow(Vector3.Angle(current.pos - next.pos, next_next.pos - next.pos) / 180f, 4);
+                next.drone_goal_vel = (next_next.pos - next.pos).normalized * max_turning_velocity * turn_angle_ratio;
 
                 path.Push(current);
                 current = next;
@@ -275,9 +275,22 @@ namespace Assets.Scrips
             return x * x * x;
         }
 
+        /*
+        public Stack<Waypoint> getBezierPath()
+        {
+            var coarse_path = new List<Waypoint>(new Stack<Waypoint>(getOptimalPath()));
+            for (int i = 1; i < coarse_path.Count - 1; i++)
+            {
+                BezierCurvee
+            }
+        }
+        */
+
         public Stack<Waypoint> getSmoothPath()
         {
             var chosen_path = getOptimalPath();
+            var chosen_path_list = new List<Waypoint>(new Stack<Waypoint>(getOptimalPath()));
+            var coarse_path = new List<Waypoint>(chosen_path);
             List<Vector3> smooth_path;
             // linear interpolation
             int chosen_path_len = 1;
@@ -286,10 +299,30 @@ namespace Assets.Scrips
             Waypoint current = chosen_path.Pop();
             List<Vector3> cps = new List<Vector3>(); // create contol points
             cps.Add(current.pos);
+            List<Vector3> cps_new = new List<Vector3>();
+            int cps_new_len = 1;
+            for (int i = 0; i < chosen_path_list.Count; i++)
+            {
+                if (i > 0)
+                {
+                    Vector3 backwards_direction = (chosen_path_list[i - 1].pos - chosen_path_list[0].pos).normalized;
+                    cps_new.Add(chosen_path_list[i].pos + backwards_direction * 10f);
+                    cps_new_len++;
+                }
+
+                if (i < chosen_path_list.Count - 1)
+                {
+                    Vector3 forwards_direction = (chosen_path_list[i + 1].pos - chosen_path_list[0].pos).normalized;
+                    cps_new.Add(chosen_path_list[i].pos + forwards_direction * 10f);
+                    cps_new_len++;
+                }
+            }
             // UnityEngine.Debug.Log("cps" + current.pos);
-            while (chosen_path.Count > 0)
+            /*
+            while (chosen_path.Count > 1)
             {
                 Waypoint next = chosen_path.Pop();
+                Waypoint next_2 = chosen_path.Pop();
                 float linear_dis = Vector3.Distance(current.pos, next.pos);
                 //UnityEngine.Debug.Log("Linear distance" + linear_dis);
                 num_interpolation = (int)Math.Ceiling(linear_dis / 4);
@@ -301,13 +334,16 @@ namespace Assets.Scrips
                     cps.Add(add_point);
                     //UnityEngine.Debug.Log("cps"+ add_point);
                 }
+                cps_new_len++;
+                cps_new.Add(next.pos);
                 chosen_path_len++;
                 cps_len += num_interpolation;
                 current = next;
-            }
+            }*/
             //UnityEngine.Debug.Log("Linear Path Length " + chosen_path_len);
             //UnityEngine.Debug.Log("Possible Control points Length " + cps_len);
 
+            /*
             List<Vector3> cps_new = new List<Vector3>(); // create contol points
             int cps_new_len = 0;
             int interval = 4;
@@ -324,6 +360,7 @@ namespace Assets.Scrips
             //UnityEngine.Debug.Log("cps_new" + cps[cps_len - 1]);
             cps_new_len++;
             //UnityEngine.Debug.Log("Control points Length" + cps_new_len);
+            
 
             Vector3 old_cp = cps_new[0];
             foreach (var cp in cps_new)
@@ -331,6 +368,7 @@ namespace Assets.Scrips
                 //Debug.DrawLine(old_cp, cp, Color.red, 100f);
                 old_cp = cp;
             }
+            */
 
             // Smoothness
             SplineCurve curve = new SplineCurve();
@@ -367,8 +405,12 @@ namespace Assets.Scrips
             do
             {
 
-                float turn_angle_ratio = Vector3.Angle(current_point.pos - next_point.pos, next_next.pos - next_point.pos) / 180f;
-                next_point.drone_goal_vel = max_turning_velocity * turn_angle_ratio;
+                float turn_angle_ratio = Mathf.Pow(Vector3.Angle(current_point.pos - next_point.pos, next_next.pos - next_point.pos) / 180f, 10);
+                next_point.drone_goal_vel = -(next_next.pos - next_point.pos).normalized * max_turning_velocity * turn_angle_ratio;
+
+                // TODO: Assign drone_goal_vel of closest point in coarse_path
+
+                //next_point.drone_goal_vel = -(next_next.pos - next_point.pos).normalized * closestPoint(next_point, coarse_path).drone_goal_vel.magnitude;
 
                 smooth_stack.Push(current_point);
                 current_point = next_point;
@@ -380,5 +422,19 @@ namespace Assets.Scrips
             return smooth_stack;
         }
 
+        private Waypoint closestPoint(Waypoint point, List<Waypoint> coarse_path)
+        {
+            Waypoint closest = coarse_path[0];
+            
+            foreach (Waypoint wp in coarse_path)
+            {
+                if (Vector3.Distance(wp.pos, point.pos) < Vector3.Distance(closest.pos, point.pos))
+                {
+                    closest = wp;
+                }
+            }
+
+            return closest;
+        }
     }
 }
