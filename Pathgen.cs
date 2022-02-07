@@ -325,7 +325,34 @@ namespace Assets.Scrips
 
             return new Stack<Waypoint>(new Stack<Waypoint>(bezier_path));
         }
-        
+
+        public List<Vector3> getBezierPathList()
+        {
+            var coarse_path = new List<Waypoint>(getOptimalPath());
+            var bezier_path = new List<Vector3>();
+
+            float slide = 6f;
+
+            bezier_path.Add(coarse_path[0].pos);
+            for (int i = 1; i < coarse_path.Count - 1; i++)
+            {
+                Vector3 backwards_direction = (coarse_path[i - 1].pos - coarse_path[i].pos).normalized;
+                Vector3 forwards_direction = (coarse_path[i + 1].pos - coarse_path[i].pos).normalized;
+
+                Vector3 control_point_1 = coarse_path[i].pos + backwards_direction * Mathf.Min(slide, (coarse_path[i - 1].pos - coarse_path[i].pos).magnitude / 2);
+                Vector3 control_point_3 = coarse_path[i].pos + forwards_direction * Mathf.Min(slide, (coarse_path[i + 1].pos - coarse_path[i].pos).magnitude / 2);
+
+                for (float t = 0; t <= 1; t += 0.02f)
+                {
+                    Vector3 sp = BezierCurve.Quadratic(new Vector2(control_point_1.x, control_point_1.z), new Vector2(coarse_path[i].pos.x, coarse_path[i].pos.z), new Vector2(control_point_3.x, control_point_3.z), t);
+                    Vector3 sample_point = new Vector3(sp.x, 0, sp.y);
+                    bezier_path.Add(sample_point);
+                }
+            }
+            bezier_path.Add(coarse_path[coarse_path.Count - 1].pos);
+            return bezier_path;
+        }
+
 
         public Stack<Waypoint> getSmoothPath()
         {
