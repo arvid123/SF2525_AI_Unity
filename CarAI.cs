@@ -120,7 +120,7 @@ namespace UnityStandardAssets.Vehicles.Car
             smooth_path_len = 0;
             foreach (var sp in smooth_path)
             {
-                //Debug.DrawLine(old_sp, sp, Color.cyan, 100f);
+                Debug.DrawLine(old_sp, sp, Color.cyan, 100f);
                 old_sp = sp;
                 smooth_path_len++;
             }
@@ -129,7 +129,7 @@ namespace UnityStandardAssets.Vehicles.Car
             // Curvature
             List<float> curvature = new List<float>();
             smooth_speed = new List<float>();
-            float yaw_rate = 0.05f;
+            float yaw_rate = 5f;
             for (int i = 0; i< smooth_path_len; i++)
             {
                 if (i == 0)
@@ -146,8 +146,8 @@ namespace UnityStandardAssets.Vehicles.Car
                 {
                     curvature.Add(Vector3.Angle(smooth_path[i] - smooth_path[i - 1], smooth_path[i + 1] - smooth_path[i]));
                     smooth_speed.Add((1.0f / curvature[i]) * yaw_rate);
-                    if (smooth_speed[i] > 0.0001f)
-                        smooth_speed[i] = 0.0001f;
+                    if (smooth_speed[i] > 5f)
+                        smooth_speed[i] = 5f;
                     //if (smooth_speed[i] < 1.0f)
                     //    smooth_speed[i] = 1.0f;
                 }
@@ -200,7 +200,7 @@ namespace UnityStandardAssets.Vehicles.Car
             }
 
             Vector3 target_velocity = ((target_position - smooth_path[step - 1]) / Time.fixedDeltaTime).normalized * smooth_speed[step];
-            Vector3 position_error = target_position - current_position;
+            Vector3 position_error = (target_position - current_position).normalized;
             Vector3 velocity_error = target_velocity - my_rigidbody.velocity;
             Vector3 desired_acceleration = k_p * position_error + k_d * velocity_error;
 

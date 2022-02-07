@@ -166,6 +166,11 @@ namespace Assets.Scrips
             return new Stack<Waypoint>(new Stack<Waypoint>(optimal_path));
         }
 
+        public List<Vector3> getOptimalPathList()
+        {
+            return new List<Waypoint>(optimal_path).ConvertAll(x => x.pos);
+        }
+
         // https://en.wikipedia.org/wiki/A*_search_algorithm 
         public Stack<Waypoint> A_star(Waypoint start, Waypoint goal, List<Waypoint> waypoints, Func<Waypoint, Waypoint, Waypoint, Waypoint, List<Waypoint>, double> g, Func<Waypoint, Waypoint, double> h)
         {
