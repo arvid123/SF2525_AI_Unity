@@ -280,27 +280,47 @@ namespace Assets.Scrips
         {
             var coarse_path = new List<Waypoint>(getOptimalPath());
             var bezier_path = new List<Waypoint>();
-            
+
+            float slide = 6f;
+
+            bezier_path.Add(coarse_path[0]);
             for (int i = 1; i < coarse_path.Count - 1; i++)
             {
                 Vector3 backwards_direction = (coarse_path[i - 1].pos - coarse_path[i].pos).normalized;
                 Vector3 forwards_direction = (coarse_path[i + 1].pos - coarse_path[i].pos).normalized;
 
-                Vector3 control_point_1 = coarse_path[i].pos + backwards_direction * 3f;
-                Vector3 control_point_3 = coarse_path[i].pos + forwards_direction * 3f;
+                Vector3 control_point_1 = coarse_path[i].pos + backwards_direction * Mathf.Min(slide, (coarse_path[i - 1].pos - coarse_path[i].pos).magnitude/2);
+                Vector3 control_point_3 = coarse_path[i].pos + forwards_direction * Mathf.Min(slide, (coarse_path[i + 1].pos - coarse_path[i].pos).magnitude/2);
 
-                for (float t = 0; t <= 1; t += 0.1f)
+                for (float t = 0; t <= 1; t += 0.02f)
                 {
                     Vector3 sp = BezierCurve.Quadratic(new Vector2(control_point_1.x, control_point_1.z), new Vector2(coarse_path[i].pos.x, coarse_path[i].pos.z), new Vector2(control_point_3.x, control_point_3.z), t);
                     Vector3 sample_point = new Vector3(sp.x, 0, sp.y);
                     bezier_path.Add(new Waypoint(sample_point));
                 }
+            }
+            bezier_path.Add(coarse_path[coarse_path.Count-1]);
 
-                for (int j = 1; j < bezier_path.Count - 1; j++)
+            for (int i = 1; i < bezier_path.Count - 1; i++)
+            {
+                float turn_angle_ratio = Mathf.Pow(Vector3.Angle(bezier_path[i - 1].pos - bezier_path[i].pos, bezier_path[i + 1].pos - bezier_path[i].pos) / 180f, 12);
+                bezier_path[i].drone_goal_vel = (bezier_path[i + 1].pos - bezier_path[i].pos).normalized * max_turning_velocity * turn_angle_ratio;
+            }
+            for (int i = 0; i < bezier_path.Count - 25; i++)
+            {
+                if (Vector3.Distance(bezier_path[i + 25].pos, bezier_path[i].pos) < 10f && bezier_path[i + 25].drone_goal_vel.magnitude < bezier_path[i].drone_goal_vel.magnitude)
                 {
-                    float turn_angle_ratio = Mathf.Pow(Vector3.Angle(bezier_path[i - 1].pos - bezier_path[i].pos, bezier_path[i + 1].pos - bezier_path[i].pos) / 180f, 4);
-                    bezier_path[i].drone_goal_vel = -(bezier_path[i + 1].pos - bezier_path[i].pos).normalized * max_turning_velocity * turn_angle_ratio;
+                    bezier_path[i].drone_goal_vel= bezier_path[i].drone_goal_vel.normalized * Mathf.Lerp(bezier_path[i].drone_goal_vel.magnitude, bezier_path[i + 25].drone_goal_vel.magnitude, 0.8f);
                 }
+            }
+
+            bezier_path[0].drone_goal_vel = (bezier_path[1].pos - bezier_path[0].pos).normalized * 15f;
+            bezier_path[bezier_path.Count - 1].drone_goal_vel = (bezier_path[bezier_path.Count - 1].pos - bezier_path[bezier_path.Count - 2].pos).normalized * 15f;
+
+            // draw goal_vels
+            foreach(Waypoint w in bezier_path)
+            {
+                //Debug.DrawLine(w.pos, w.pos + w.drone_goal_vel, Color.yellow, 1000f);
             }
 
             return new Stack<Waypoint>(new Stack<Waypoint>(bezier_path));
