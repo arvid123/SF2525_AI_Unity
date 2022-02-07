@@ -127,7 +127,7 @@ namespace Assets.Scrips
                     if ((!w.pos.Equals(otherw.pos) && !Physics.Linecast(w.pos, otherw.pos, LayerMask.GetMask("TransparentFX"))) || (goal_within_padding && ((w.Equals(goal) || otherw.Equals(goal)) && !Physics.Linecast(w.pos, otherw.pos, LayerMask.GetMask("Default")))))
                     {
                         w.neighbors.Add(otherw);
-                        Debug.DrawLine(w.pos, otherw.pos, Color.red, 100f);
+                        //Debug.DrawLine(w.pos, otherw.pos, Color.red, 100f);
                     }
                 }
             }
@@ -150,7 +150,7 @@ namespace Assets.Scrips
             {
                 Waypoint next = path.Pop();
                 Debug.Log(current.drone_goal_vel);
-                Debug.DrawLine(current.pos, next.pos, Color.yellow, 1000f);
+                //Debug.DrawLine(current.pos, next.pos, Color.yellow, 1000f);
                 current = next;
             }
 
@@ -275,16 +275,37 @@ namespace Assets.Scrips
             return x * x * x;
         }
 
-        /*
+        
         public Stack<Waypoint> getBezierPath()
         {
-            var coarse_path = new List<Waypoint>(new Stack<Waypoint>(getOptimalPath()));
+            var coarse_path = new List<Waypoint>(getOptimalPath());
+            var bezier_path = new List<Waypoint>();
+            
             for (int i = 1; i < coarse_path.Count - 1; i++)
             {
-                BezierCurvee
+                Vector3 backwards_direction = (coarse_path[i - 1].pos - coarse_path[i].pos).normalized;
+                Vector3 forwards_direction = (coarse_path[i + 1].pos - coarse_path[i].pos).normalized;
+
+                Vector3 control_point_1 = coarse_path[i].pos + backwards_direction * 3f;
+                Vector3 control_point_3 = coarse_path[i].pos + forwards_direction * 3f;
+
+                for (float t = 0; t <= 1; t += 0.1f)
+                {
+                    Vector3 sp = BezierCurve.Quadratic(new Vector2(control_point_1.x, control_point_1.z), new Vector2(coarse_path[i].pos.x, coarse_path[i].pos.z), new Vector2(control_point_3.x, control_point_3.z), t);
+                    Vector3 sample_point = new Vector3(sp.x, 0, sp.y);
+                    bezier_path.Add(new Waypoint(sample_point));
+                }
+
+                for (int j = 1; j < bezier_path.Count - 1; j++)
+                {
+                    float turn_angle_ratio = Mathf.Pow(Vector3.Angle(bezier_path[i - 1].pos - bezier_path[i].pos, bezier_path[i + 1].pos - bezier_path[i].pos) / 180f, 4);
+                    bezier_path[i].drone_goal_vel = -(bezier_path[i + 1].pos - bezier_path[i].pos).normalized * max_turning_velocity * turn_angle_ratio;
+                }
             }
+
+            return new Stack<Waypoint>(new Stack<Waypoint>(bezier_path));
         }
-        */
+        
 
         public Stack<Waypoint> getSmoothPath()
         {
@@ -301,45 +322,35 @@ namespace Assets.Scrips
             cps.Add(current.pos);
             List<Vector3> cps_new = new List<Vector3>();
             int cps_new_len = 1;
-            for (int i = 0; i < chosen_path_list.Count; i++)
-            {
-                if (i > 0)
-                {
-                    Vector3 backwards_direction = (chosen_path_list[i - 1].pos - chosen_path_list[0].pos).normalized;
-                    cps_new.Add(chosen_path_list[i].pos + backwards_direction * 10f);
-                    cps_new_len++;
-                }
-
-                if (i < chosen_path_list.Count - 1)
-                {
-                    Vector3 forwards_direction = (chosen_path_list[i + 1].pos - chosen_path_list[0].pos).normalized;
-                    cps_new.Add(chosen_path_list[i].pos + forwards_direction * 10f);
-                    cps_new_len++;
-                }
-            }
+            cps_new.Add(current.pos);
             // UnityEngine.Debug.Log("cps" + current.pos);
-            /*
+            
             while (chosen_path.Count > 1)
             {
                 Waypoint next = chosen_path.Pop();
-                Waypoint next_2 = chosen_path.Pop();
                 float linear_dis = Vector3.Distance(current.pos, next.pos);
                 //UnityEngine.Debug.Log("Linear distance" + linear_dis);
-                num_interpolation = (int)Math.Ceiling(linear_dis / 4);
-                UnityEngine.Debug.Log("num_interpolation" + num_interpolation);
+                //num_interpolation = (int)Math.Ceiling(linear_dis / 2);
+                num_interpolation = 11; // 
+                //UnityEngine.Debug.Log("num_interpolation" + num_interpolation);
                 for (int i = 1; i <= num_interpolation; i++)
                 {
                     float rate = (float)i / num_interpolation;
                     Vector3 add_point = Vector3.Lerp(current.pos, next.pos, rate);
                     cps.Add(add_point);
                     //UnityEngine.Debug.Log("cps"+ add_point);
+                    if (i == 2) // //
+                        cps_new.Add(add_point); // //
+                    if (i == 9) // //
+                        cps_new.Add(add_point); // //
                 }
-                cps_new_len++;
-                cps_new.Add(next.pos);
+                cps_new_len += 2;
+                // cps_new.Add(next.pos);// //
+                // cps_new_len++; // //
                 chosen_path_len++;
                 cps_len += num_interpolation;
                 current = next;
-            }*/
+            }
             //UnityEngine.Debug.Log("Linear Path Length " + chosen_path_len);
             //UnityEngine.Debug.Log("Possible Control points Length " + cps_len);
 

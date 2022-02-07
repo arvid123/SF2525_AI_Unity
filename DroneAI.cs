@@ -23,7 +23,7 @@ public class DroneAI : MonoBehaviour
     float threshold_error = 1f;
     Rigidbody my_rigidbody;
     float k_p = 1f;
-    float k_d = 3f;
+    float k_d = 6f;
     Vector3 target_position;
     Vector3 old_target_pos;
     Vector3 target_velocity;
@@ -37,7 +37,15 @@ public class DroneAI : MonoBehaviour
         terrain_manager = terrain_manager_game_object.GetComponent<TerrainManager>();
 
         pathgen = new Pathgen(terrain_manager, terrain_padding, 15f, "drone");
-        chosen_path = new Stack<Waypoint>(new Stack<Waypoint>(pathgen.getSmoothPath()));
+        chosen_path = pathgen.getBezierPath();
+        var drawing_path = new Stack<Waypoint>(new Stack<Waypoint>(chosen_path));
+        var current = drawing_path.Pop();
+        while (drawing_path.Count > 0)
+        {
+            var next = drawing_path.Pop();
+            Debug.DrawLine(current.pos, next.pos, Color.cyan, 10000f);
+            current = next;
+        }
         current_goal = chosen_path.Pop();
         my_rigidbody = GetComponent<Rigidbody>();
     }
