@@ -56,10 +56,13 @@ namespace UnityStandardAssets.Vehicles.Car
         
         private void Start()
         {
-            int a = 1;
-            int b = 3;
+
+            MWNumericArray a = 3;
+            MWNumericArray b = 5;
+            MWNumericArray result;
             Class1 c = new Class1();
-            c.Add_ab(a, b);
+            result = (MWNumericArray) c.Add_ab(a, b);
+            print(result);
 
             // get the Car controller
             m_Car = GetComponent<CarController>();

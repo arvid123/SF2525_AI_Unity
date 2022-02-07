@@ -351,6 +351,8 @@ namespace Assets.Scrips
                 cps_len += num_interpolation;
                 current = next;
             }
+            cps_new.Add(current.pos);
+            cps_new_len += 1;
             //UnityEngine.Debug.Log("Linear Path Length " + chosen_path_len);
             //UnityEngine.Debug.Log("Possible Control points Length " + cps_len);
 
@@ -372,14 +374,14 @@ namespace Assets.Scrips
             cps_new_len++;
             //UnityEngine.Debug.Log("Control points Length" + cps_new_len);
             
-
+            */
             Vector3 old_cp = cps_new[0];
             foreach (var cp in cps_new)
             {
                 //Debug.DrawLine(old_cp, cp, Color.red, 100f);
                 old_cp = cp;
             }
-            */
+
 
             // Smoothness
             SplineCurve curve = new SplineCurve();
