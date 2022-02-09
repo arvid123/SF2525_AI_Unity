@@ -129,7 +129,7 @@ namespace UnityStandardAssets.Vehicles.Car
             // Curvature
             List<float> curvature = new List<float>();
             smooth_speed = new List<float>();
-            float yaw_rate = 5f;
+            float yaw_rate = 10f;
             for (int i = 0; i< smooth_path_len; i++)
             {
                 if (i == 0)
@@ -146,8 +146,8 @@ namespace UnityStandardAssets.Vehicles.Car
                 {
                     curvature.Add(Vector3.Angle(smooth_path[i] - smooth_path[i - 1], smooth_path[i + 1] - smooth_path[i]));
                     smooth_speed.Add((1.0f / curvature[i]) * yaw_rate);
-                    if (smooth_speed[i] > 5f)
-                        smooth_speed[i] = 5f;
+                    if (smooth_speed[i] > 10f)
+                        smooth_speed[i] = 10f;
                     //if (smooth_speed[i] < 1.0f)
                     //    smooth_speed[i] = 1.0f;
                 }
@@ -196,6 +196,7 @@ namespace UnityStandardAssets.Vehicles.Car
             if (step == smooth_path_len - 1)
             {
                 print("Arrive");
+                m_Car.Move(0.0f, 0.0f, -1.0f, 1.0f);
                 return;
             }
 

@@ -217,7 +217,7 @@ namespace Assets.Scrips
                 g += Vector3.Angle(Vector3.forward, neighbor.pos - current.pos);
             } else if (current.cameFrom != null)
             {
-                g += Vector3.Angle(current.cameFrom.pos - current.pos, neighbor.pos - current.pos) * 0.35f;
+                g += Vector3.Angle(current.cameFrom.pos - current.pos, neighbor.pos - current.pos) * 0.0f;
             }
             return g;
         }
