@@ -17,26 +17,28 @@ namespace UnityStandardAssets.Vehicles.Car
 
         public GameObject[] friends; // use these to avoid collisions
 
+        float terrain_padding = 4f;
+        Pathgen pathgen;
+
         List<Vector3> bezier_path;
         public int bezier_path_len;
         List<Vector3> smooth_path;
-        List<Vector3> cps;
         public int smooth_path_len;
         List<float> smooth_speed;
 
-        float terrain_padding = 4f;
-
-        Stack<Waypoint> chosen_path;
-        Waypoint current_goal;
-        Pathgen pathgen;
-        float driving_time_total = 0.0f;
-
+        public float dis_interval = 2.0f; // distance interval between each pont in linear interpolation
+        public int knot_interval = 20;  // downsampling to get knots
+        public int spline_resolution = 10; // number of points between knots
+        public float yaw_rate = 50.0f;
+        public float speed_max = 50.0f;
+        public float speed_min = 0.0f;
 
         public int step;
         public float k_p = 2f;
         public float k_d = 0.5f;
-        public float allow_error = 1.0f;
-        public bool isloop;
+        public float error_threshold_min = 5.0f;
+        public float error_threshold_max = 10.0f;
+        public int forward_step = 10; // search step number for control error correction
         Rigidbody my_rigidbody;
         
         private void Start()
@@ -57,13 +59,13 @@ namespace UnityStandardAssets.Vehicles.Car
 
             //linear interpolation
             int num_interpolation;
-            cps = new List<Vector3>(); // create contol points
+            List<Vector3> cps = new List<Vector3>(); // create contol points
             cps.Add(bezier_path[0]);
             int cps_len = 1;
             for (int j = 0; j < bezier_path_len-1; j++)
             {
                 float linear_dis = Vector3.Distance(bezier_path[j], bezier_path[j+1]);
-                num_interpolation = (int)Math.Ceiling(linear_dis / 2);
+                num_interpolation = (int)Math.Ceiling(linear_dis / dis_interval);
                 for (int i = 1; i <= num_interpolation; i++)
                 {
                     float rate = (float)i / num_interpolation;
@@ -76,10 +78,9 @@ namespace UnityStandardAssets.Vehicles.Car
 
             List<Vector3> cps_new = new List<Vector3>(); // create contol points
             int cps_new_len = 0;
-            int interval = 20;
             for (int i = 0; i < cps_len - 1; i++)
             {
-                if ((i % interval) == 0)
+                if ((i % knot_interval) == 0)
                 {
                     cps_new.Add(cps[i]);
                     cps_new_len++;
@@ -108,7 +109,7 @@ namespace UnityStandardAssets.Vehicles.Car
             smooth_path = new List<Vector3>(); //create smooth path
             for (int i = 0; i < curve.segmentList.Count; i++)
             {
-                float add = 1f / 10;  // 表示两个关键点之间取20个点，可根据需要设置
+                float add = 1f / spline_resolution;  // 表示两个关键点之间取20个点，可根据需要设置
                 for (float j = 0; j < 1; j += add)
                 {
                     Vector3 point = curve.segmentList[i].GetPoint(j);
@@ -129,7 +130,6 @@ namespace UnityStandardAssets.Vehicles.Car
             // Curvature
             List<float> curvature = new List<float>();
             smooth_speed = new List<float>();
-            float yaw_rate = 10f;
             for (int i = 0; i< smooth_path_len; i++)
             {
                 if (i == 0)
@@ -146,10 +146,10 @@ namespace UnityStandardAssets.Vehicles.Car
                 {
                     curvature.Add(Vector3.Angle(smooth_path[i] - smooth_path[i - 1], smooth_path[i + 1] - smooth_path[i]));
                     smooth_speed.Add((1.0f / curvature[i]) * yaw_rate);
-                    if (smooth_speed[i] > 10f)
-                        smooth_speed[i] = 10f;
-                    //if (smooth_speed[i] < 1.0f)
-                    //    smooth_speed[i] = 1.0f;
+                    if (smooth_speed[i] > speed_max)
+                        smooth_speed[i] = speed_max;
+                    //if (smooth_speed[i] < speed_min)
+                    //    smooth_speed[i] = speed_min;
                 }
                 UnityEngine.Debug.Log("Curvature" + curvature[i] + "Smooth speed" + smooth_speed[i]);
             }
@@ -166,17 +166,17 @@ namespace UnityStandardAssets.Vehicles.Car
 
             if (step < smooth_path_len - 1)
             {
-                if (Vector3.Distance(target_position, current_position) < 5.0f)
+                if (Vector3.Distance(target_position, current_position) < error_threshold_min)
                 {
                     step++;
                     target_position = smooth_path[step];
                 }
-                else if (Vector3.Distance(target_position, current_position) > 10.0f)
+                else if (Vector3.Distance(target_position, current_position) > error_threshold_max)
                 {
                     float value = Vector3.Dot((smooth_path[step] - smooth_path[step - 1]).normalized, my_rigidbody.velocity.normalized);
                     float value_temp;
                     int temp = step;
-                    for (int i = step; i< step + 10; i++)
+                    for (int i = step; i< step + forward_step; i++)
                     {
                         if (i >= smooth_path_len)
                             break;
